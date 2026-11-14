@@ -36,6 +36,8 @@ OVERHANG_WARN_PCT = 3.0
 NEAR_BED_MM = 1.0            # overhangs entirely below this height (rounded/chamfered bottom edges) print fine
 OVERHANG_WARN_MM2 = 150.0
 FLAT_NZ = 0.99               # |normal_z| above this = horizontal face
+BRIDGE_MAX_MM = 30.0         # flat ceilings spanning at most this between two supporting walls print as bridges
+BRIDGE_SIDE_MM = 0.5         # a supporting wall must touch the ceiling within this of each side of the span
 BED_CONTACT_WARN_MM2 = 80.0
 MAX_TRIANGLES = 400_000
 TINY_SHELL_MM3 = 1.0         # extra shells smaller than this are CSG debris, not real parts
@@ -445,6 +447,58 @@ def _check_min_wall(m: _Mesh, min_wall_mm: float):
     return _check("min_wall", status, value, en, de), fb
 
 
+def _short_bridges(m: _Mesh, cand: np.ndarray) -> np.ndarray:
+    """Faces of `cand` (flat ceilings) that form short bridges: each connected ceiling patch whose span along its
+    shorter horizontal axis is <= BRIDGE_MAX_MM and that rests on walls going down at both ends of that span.
+    A cantilevered shelf (wall on one side only) or a wide ceiling is not a bridge."""
+    ok = np.zeros(m.n, dtype=bool)
+    if not cand.any():
+        return ok
+    f = m.faces
+    # half-edges: face id, local edge index, undirected edge key
+    fid = np.repeat(np.arange(m.n), 3)
+    loc = np.tile(np.arange(3), m.n)
+    a, b = f[fid, loc], f[fid, (loc + 1) % 3]
+    key = np.minimum(a, b) * np.int64(m.nv) + np.maximum(a, b)
+    order = np.argsort(key, kind="stable")
+    ks = key[order]
+    same = ks[:-1] == ks[1:]
+    # only manifold pairs (exactly two half-edges per key); others are reported by the watertight check
+    first = np.r_[True, ~same]
+    run_len = np.diff(np.r_[np.nonzero(first)[0], len(ks)])
+    pair_start = np.nonzero(first)[0][run_len == 2]
+    h1, h2 = order[pair_start], order[pair_start + 1]
+    partner = np.full(len(key), -1, dtype=np.int64)
+    partner[h1], partner[h2] = fid[h2], fid[h1]
+
+    # connected ceiling patches
+    both = cand[fid[h1]] & cand[fid[h2]]
+    root = _components(m.n, fid[h1][both], fid[h2][both])
+
+    # boundary half-edges of the patches and whether the neighbouring face is a wall going down
+    hb = np.nonzero(cand[fid] & (partner >= 0))[0]
+    hb = hb[~cand[partner[hb]]]
+    p0 = m.tris[fid[hb], loc[hb]]
+    p1 = m.tris[fid[hb], (loc[hb] + 1) % 3]
+    mid = (p0 + p1) / 2.0
+    supported = m.zmin_t[partner[hb]] < mid[:, 2] - BRIDGE_SIDE_MM
+    hroot = root[fid[hb]]
+
+    for r in np.unique(root[cand]):
+        faces = np.nonzero(cand & (root == r))[0]
+        pts = m.tris[faces].reshape(-1, 3)
+        lo, hi = pts.min(axis=0), pts.max(axis=0)
+        sel = (hroot == r) & supported
+        for ax in (0, 1):  # bridge along x or along y (a slot open at one end only bridges across it)
+            if hi[ax] - lo[ax] > BRIDGE_MAX_MM:
+                continue
+            c = mid[sel, ax]
+            if (c <= lo[ax] + BRIDGE_SIDE_MM).any() and (c >= hi[ax] - BRIDGE_SIDE_MM).any():
+                ok[faces] = True
+                break
+    return ok
+
+
 def _check_overhang(m: _Mesh):
     nz = m.normal[:, 2]
     total = float(m.area.sum())
@@ -453,9 +507,11 @@ def _check_overhang(m: _Mesh):
     thr = -math.sin(math.radians(OVERHANG_DEG + OVERHANG_TOL_DEG))
     down = (nz < thr) & ~on_bed
     near = down & (m.zmax_t <= m.mins[2] + NEAR_BED_MM)   # bottom-edge roundings / chamfers
-    over = down & ~near
+    bridge = _short_bridges(m, down & ~near & (nz < -FLAT_NZ))
+    over = down & ~near & ~bridge
     a = float(m.area[over].sum())
     a_near = float(m.area[near].sum())
+    a_bridge = float(m.area[bridge].sum())
     flat = float(m.area[over & (nz < -FLAT_NZ)].sum())
     pct = 100.0 * a / total if total > 0 else 0.0
     value = f"{_en(a, 0)} mm² ({_en(pct, 1)} %)"
@@ -463,6 +519,11 @@ def _check_overhang(m: _Mesh):
                "ignored - they print fine.)") if a_near >= 0.5 else ""
     near_de = (f" ({_de(a_near, 0)} mm² weitere bis {_de(NEAR_BED_MM, 0)} mm über dem Bett, z. B. abgerundete "
                "Unterkanten, nicht gezählt - unkritisch.)") if a_near >= 0.5 else ""
+    if a_bridge >= 0.5:
+        near_en += (f" ({_en(a_bridge, 0)} mm² of flat ceilings are short bridges between two walls "
+                    f"(span ≤ {_en(BRIDGE_MAX_MM, 0)} mm) - they print without supports.)")
+        near_de += (f" ({_de(a_bridge, 0)} mm² waagerechte Decken sind kurze Brücken zwischen zwei Wänden "
+                    f"(Spannweite ≤ {_de(BRIDGE_MAX_MM, 0)} mm) - druckbar ohne Stützen.)")
     if a <= 0:
         return _check("overhang", "pass", value, "No downward faces flatter than 45° (apart from the bed)." + near_en,
                       "Keine nach unten zeigenden Flächen flacher als 45° (außer auf dem Bett)." + near_de), ""
