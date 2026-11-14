@@ -19,6 +19,9 @@ class Measurement(BaseModel):
     source: str = Field(description="'user' if stated by the user, 'reference' if scaled from a reference object "
                                     "in the media, 'media' if roughly estimated from the media without a "
                                     "reference, 'typical' if a typical default value was assumed.")
+    # --- precise-measurement ---
+    uncertainty_mm: float = Field(default=0.0, description="Leave 0.")
+    method: str = Field(default="", description="Leave empty.")
 
 
 class FitLink(BaseModel):
