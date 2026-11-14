@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AidForge</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <a class="skip" href="#form" data-i18n="skip">Zum Formular springen</a>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="3" y="3" width="26" height="26" rx="7" fill="currentColor" opacity=".15"/>
+        <path d="M10 22c0-5 2.5-9 6-9s6 4 6 9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="16" cy="9" r="2.6" fill="currentColor"/>
+      </svg>
+      <div>
+        <h1>AidForge</h1>
+        <p class="tagline" data-i18n="tagline">Vom Alltagsproblem zum druckfertigen Hilfsmittel</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="pill" id="pill-gemini">Gemini</span>
+      <span class="pill" id="pill-openscad">OpenSCAD</span>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="de" aria-pressed="true">DE</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ============ INPUT ============ -->
+    <form id="form" class="panel form" autocomplete="off">
+      <section class="field">
+        <h2><span class="num">1</span> <span data-i18n="mediaTitle">Situation zeigen</span></h2>
+        <label class="drop" id="drop">
+          <input type="file" id="files" accept="image/*,video/*" multiple>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-i18n="dropText">Foto oder kurzes Video hochladen</span>
+          <small data-i18n="dropHint">z. B. der Schlüssel, das Glas, die Hand beim Versuch – gern mit Münze/Karte als Größenreferenz</small>
+        </label>
+        <div class="thumbs" id="thumbs"></div>
+      </section>
+
+      <section class="field">
+        <h2><span class="num">2</span> <label for="impairment" data-i18n="impTitle">Einschränkung</label>
+          <button type="button" class="mic" data-target="impairment" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 9a7 7 0 0 0 14 0M12 19v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="sr-only" data-i18n="micLabel">Spracheingabe</span></button>
+        </h2>
+        <textarea id="impairment" rows="3" required data-i18n-ph="impPh" placeholder="z. B. Rheumatoide Arthritis, kaum Kraft im Pinzettengriff"></textarea>
+        <div class="chips" data-target="impairment" id="chips-imp"></div>
+      </section>
+
+      <section class="field">
+        <h2><span class="num">3</span> <label for="activity" data-i18n="actTitle">Aktivität</label>
+          <button type="button" class="mic" data-target="activity" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 9a7 7 0 0 0 14 0M12 19v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="sr-only" data-i18n="micLabel">Spracheingabe</span></button>
+        </h2>
+        <textarea id="activity" rows="2" required data-i18n-ph="actPh" placeholder="z. B. Haustür selbstständig aufschließen"></textarea>
+        <div class="chips" data-target="activity" id="chips-act"></div>
+      </section>
+
+      <section class="field">
+        <h2><label for="notes" data-i18n="notesTitle">Maße &amp; Notizen (optional)</label>
+          <button type="button" class="mic" data-target="notes" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 9a7 7 0 0 0 14 0M12 19v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="sr-only" data-i18n="micLabel">Spracheingabe</span></button>
+        </h2>
+        <textarea id="notes" rows="2" data-i18n-ph="notesPh" placeholder="z. B. Schlüsselkopf 24 × 22 mm, Deckel Ø 82 mm, Linkshänder"></textarea>
+      </section>
+
+      <label class="check">
+        <input type="checkbox" id="review" checked>
+        <span data-i18n="reviewLabel">Gemini prüft das gerenderte Modell und korrigiert es</span>
+      </label>
+
+      <button type="submit" class="primary" id="go">
+        <span data-i18n="go">Hilfsmittel generieren</span>
+      </button>
+      <p class="error" id="form-error" role="alert" hidden></p>
+
+      <details class="library">
+        <summary data-i18n="libTitle">Oder: Vorlage direkt öffnen</summary>
+        <div class="lib-list" id="lib-list"></div>
+      </details>
+
+      <details class="library" id="recent-wrap" hidden>
+        <summary data-i18n="recentTitle">Gespeicherte Ergebnisse</summary>
+        <div class="lib-list" id="recent-list"></div>
+      </details>
+    </form>
+
+    <!-- ============ OUTPUT ============ -->
+    <section class="panel output" aria-labelledby="out-title">
+      <h2 id="out-title" class="sr-only" data-i18n="resultTitle">Ergebnis</h2>
+
+      <ol class="steps" id="steps" aria-live="polite" hidden></ol>
+
+      <div class="viewer-wrap">
+        <div id="viewer" class="viewer" role="img" aria-label="3D model preview"></div>
+        <div class="empty" id="empty">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4 6 14v20l18 10 18-10V14L24 4Zm0 0v20m0 0L6 14m18 10 18-10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          <p data-i18n="emptyText">Dein Hilfsmittel erscheint hier als druckfertiges 3D-Modell.</p>
+        </div>
+        <div class="viewing-old" id="viewing-old" hidden></div>
+        <div class="viewer-bar" id="viewer-bar" hidden>
+          <span class="dims" id="dims"></span>
+          <div class="viewer-actions">
+            <button type="button" class="ghost accent" id="btn-anim" aria-pressed="false" hidden data-i18n="playAnim">Benutzung zeigen</button>
+            <button type="button" class="ghost" id="btn-wire" data-i18n="wire">Gitter</button>
+            <button type="button" class="ghost" id="btn-reset" data-i18n="resetView">Ansicht zurücksetzen</button>
+            <a class="button" id="dl-stl" download data-i18n="dlStl">STL herunterladen</a>
+            <a class="button ghost" id="dl-scad" download data-i18n="dlScad">.scad</a>
+          </div>
+        </div>
+      </div>
+
+      <div id="result" hidden>
+        <div class="result-head">
+          <div>
+            <p class="badge" id="approach"></p>
+            <h3 id="device-name"></h3>
+            <p id="how-it-helps"></p>
+          </div>
+          <div class="head-side">
+            <button type="button" class="check-badge" id="check-badge" hidden></button>
+            <div class="confidence" id="confidence-wrap" hidden>
+              <span data-i18n="confidence">Zuversicht</span>
+              <div class="bar"><div id="confidence"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <section class="loop" id="loop" hidden>
+          <h4 data-i18n="loopTitle">Agentischer Loop</h4>
+          <ol class="timeline" id="timeline"></ol>
+          <div class="iter-detail" id="iter-detail" aria-live="polite"></div>
+        </section>
+
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-tab="analysis" data-i18n="tabAnalysis">Analyse</button>
+          <button role="tab" aria-selected="false" data-tab="params" data-i18n="tabParams">Parameter</button>
+          <button role="tab" aria-selected="false" data-tab="review" data-i18n="tabReview">Prüfung</button>
+          <button role="tab" aria-selected="false" data-tab="visual" data-i18n="tabVisual">So könnte es aussehen</button>
+          <button role="tab" aria-selected="false" data-tab="print" data-i18n="tabPrint">Druck &amp; Nutzung</button>
+          <button role="tab" aria-selected="false" data-tab="code" data-i18n="tabCode">Code</button>
+        </div>
+        <div class="tab-panel" id="tab-analysis" role="tabpanel"></div>
+        <div class="tab-panel" id="tab-params" role="tabpanel" hidden>
+          <div id="params"></div>
+          <div class="row">
+            <button type="button" class="primary small" id="rebuild" data-i18n="rebuild">Neu bauen</button>
+            <span class="muted" id="rebuild-status" aria-live="polite"></span>
+          </div>
+        </div>
+        <div class="tab-panel" id="tab-print" role="tabpanel" hidden></div>
+        <div class="tab-panel" id="tab-review" role="tabpanel" hidden></div>
+        <div class="tab-panel" id="tab-visual" role="tabpanel" hidden>
+          <p class="ai-label"><span data-i18n="aiLabel">KI-Visualisierung</span> · <span class="muted" data-i18n="aiNote">zeigt, wie echte Benutzung aussehen könnte – nicht maßstabsgetreu.</span></p>
+          <div class="row">
+            <button type="button" class="ghost" id="vis-frames" data-i18n="visFrames">Vorher/Nachher-Bilder erzeugen</button>
+            <button type="button" class="primary small" id="vis-video" data-i18n="visVideo">Animation erzeugen</button>
+            <span class="muted small-text" id="vis-hint"></span>
+          </div>
+          <p class="muted" id="vis-status" aria-live="polite"></p>
+          <div class="frames" id="vis-frames-out"></div>
+          <video id="vis-player" controls loop muted playsinline hidden></video>
+        </div>
+        <div class="tab-panel" id="tab-code" role="tabpanel" hidden>
+          <div class="row"><button type="button" class="ghost small" id="copy-code" data-i18n="copy">Kopieren</button></div>
+          <pre><code id="code"></code></pre>
+        </div>
+
+        <form class="refine" id="refine">
+          <label for="feedback" data-i18n="refineLabel">Passt noch nicht? Beschreibe die Änderung:</label>
+          <div class="row">
+            <input id="feedback" type="text" data-i18n-ph="refinePh" placeholder="z. B. Griff 5 mm dicker, Hebel länger">
+            <button type="submit" class="primary small" data-i18n="refineGo">Anpassen</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot" data-i18n="footer">
+    Prototyp – Hilfsmittel vor dem Alltagseinsatz mit Ergotherapeut:in prüfen. Fotos und Videos werden nur zur Verarbeitung an Gemini gesendet.
+  </footer>
+
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

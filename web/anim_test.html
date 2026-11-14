@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Usage animation test</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    :root { --bg: #eef1f0; --panel: #ffffff; --line: #d3dad7; --text: #1d2522; --muted: #5d6a65; --accent: #0f766e; --bad: #b42318; --good: #157f3b; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    h1 { font-size: 18px; margin: 0 0 10px; }
+    .bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+    .bar label { display: inline-flex; gap: 6px; align-items: center; }
+    select, button, input[type=range] { font: inherit; }
+    select, button { padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
+    button { cursor: pointer; }
+    #scrub { width: min(320px, 60vw); }
+    #time { font-variant-numeric: tabular-nums; min-width: 9ch; }
+    #status { color: var(--muted); }
+    .viewer { position: relative; width: min(100%, 960px); height: min(58vh, 560px); min-height: 320px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #f6f8f7; }
+    .viewer canvas { display: block; width: 100% !important; height: 100% !important; }
+    #err { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--bad); border-radius: 8px; background: #fdecea; color: var(--bad); white-space: pre-wrap; }
+    .info { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; max-width: 960px; }
+    .info section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-width: 260px; flex: 1; }
+    .info h2 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    td { padding: 1px 10px 1px 0; }
+    .ok { color: var(--good); font-weight: 600; }
+    .bad { color: var(--bad); font-weight: 600; }
+    code { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Usage animation test <span id="status"></span></h1>
+  <div class="bar">
+    <label>Template <select id="tpl"></select></label>
+    <button id="play" type="button">Pause</button>
+    <input id="scrub" type="range" min="0" max="1" step="0.01" value="0" aria-label="Animation time">
+    <span id="time">0.00 s</span>
+    <label>Camera <select id="fit">
+      <option value="app">app framing (2.2x device)</option>
+      <option value="bounds">fit animation bounds</option>
+    </select></label>
+    <button id="refit" type="button">Reset camera</button>
+    <button id="restart" type="button">Dispose + recreate</button>
+    <button id="recompile" type="button">Recompile</button>
+  </div>
+  <div id="err" role="alert" hidden></div>
+  <div class="viewer" id="viewer"></div>
+  <div class="info">
+    <section><h2>Parameters (job.params)</h2><table id="params"></table></section>
+    <section><h2>Last dispose() check</h2><div id="check">-</div></section>
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { STLLoader } from "three/addons/loaders/STLLoader.js";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    const $ = (id) => document.getElementById(id);
+    const errEl = $("err");
+    function showError(e) {
+      console.error(e);
+      errEl.textContent = String((e && (e.stack || e.message)) || e);
+      errEl.hidden = false;
+    }
+    function clearError() { errEl.hidden = true; errEl.textContent = ""; }
+    window.addEventListener("error", (e) => showError(e.error || e.message));
+    window.addEventListener("unhandledrejection", (e) => showError(e.reason));
+    const setStatus = (s) => { $("status").textContent = s ? `- ${s}` : ""; };
+
+    let ua;
+    try {
+      ua = await import(`./usage_anim.js?v=${Date.now()}`);   // cache-busted while developing
+    } catch (e) {
+      showError(e);
+      throw e;
+    }
+
+    // ------------------------------------------------------------ scene (same setup as web/app.js)
+    const viewerEl = $("viewer");
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    viewerEl.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 5000);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8a9590, 1.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+    sun.position.set(150, 260, 180);
+    scene.add(sun);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.7);
+    fill.position.set(-200, 80, -150);
+    scene.add(fill);
+    const grid = new THREE.GridHelper(220, 22, 0x7a8a85, 0xc4ccc9);
+    grid.material.transparent = true; grid.material.opacity = 0.55;
+    scene.add(grid);
+    const material = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.55, metalness: 0.05 });
+
+    let mesh = null;
+    let meshOffset = new THREE.Vector3();
+    let fitState = null;
+    let job = null;
+    let anim = null;
+    let animTime = 0;
+    let playing = true;
+    let baseline = null;
+    let token = 0;
+    const clock = new THREE.Clock();
+
+    function resize() {
+      const w = viewerEl.clientWidth, h = viewerEl.clientHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / Math.max(h, 1);
+      camera.updateProjectionMatrix();
+    }
+    new ResizeObserver(resize).observe(viewerEl);
+    resize();
+
+    function render() { controls.update(); renderer.render(scene, camera); }
+    (function loop() {
+      const dt = Math.min(clock.getDelta(), 0.1);
+      if (anim && playing) {
+        animTime = (animTime + dt) % anim.duration;
+        try { anim.update(animTime); } catch (e) { showError(e); playing = false; }
+      }
+      if (anim) {
+        $("scrub").value = String(animTime);
+        $("time").textContent = `${animTime.toFixed(2)} s / ${anim.duration.toFixed(1)}`;
+      }
+      render();
+      requestAnimationFrame(loop);
+    })();
+
+    function placeCamera(size, center, scaleUp) {
+      const r = Math.max(size.x, size.y, size.z) * 0.5 * scaleUp;
+      const dist = r / Math.sin((camera.fov * Math.PI) / 360) * 1.25;
+      camera.position.set(center.x + dist * 0.75, center.y + dist * 0.6, center.z + dist * 0.85);
+      controls.target.copy(center);
+      camera.near = dist / 100; camera.far = dist * 20; camera.updateProjectionMatrix();
+      controls.update();
+    }
+    function fitCamera() {
+      if ($("fit").value === "bounds" && anim && anim.bounds && !anim.bounds.isEmpty()) {
+        const size = new THREE.Vector3(), center = new THREE.Vector3();
+        anim.bounds.getSize(size); anim.bounds.getCenter(center);
+        placeCamera(size, center, 1.1);
+      } else if (fitState) {
+        placeCamera(fitState.size, fitState.center, anim ? 2.2 : 1);   // what app.js does
+      }
+    }
+
+    // ------------------------------------------------------------ server jobs
+    const cache = new Map();   // template_id -> finished job
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    async function compileTemplate(id, force) {
+      if (!force && cache.has(id)) return cache.get(id);
+      const r = await fetch("/api/jobs/template", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_id: id }),
+      });
+      if (!r.ok) throw new Error(`POST /api/jobs/template -> HTTP ${r.status}: ${await r.text()}`);
+      const { job_id } = await r.json();
+      const t0 = performance.now();
+      for (;;) {
+        await sleep(400);
+        const jr = await fetch(`/api/jobs/${job_id}`);
+        if (!jr.ok) throw new Error(`GET /api/jobs/${job_id} -> HTTP ${jr.status}: ${await jr.text()}`);
+        const j = await jr.json();
+        if (j.status === "done") {
+          if (!j.stl_url) throw new Error(`job ${job_id} is done but has no stl_url`);
+          cache.set(id, j);
+          return j;
+        }
+        if (j.status === "error") throw new Error(`job ${job_id} failed: ${j.error || "unknown error"}`);
+        setStatus(`compiling ${id} (${((performance.now() - t0) / 1000).toFixed(0)} s)`);
+        if (performance.now() - t0 > 240000) throw new Error(`job ${job_id} timed out`);
+      }
+    }
+
+    const loader = new STLLoader();
+    const loadGeometry = (url) => new Promise((res, rej) => loader.load(url, res, undefined,
+      () => rej(new Error(`could not load ${url}`))));
+
+    const paramsObject = (j) => Object.fromEntries((j.params || []).map((q) => [q.name, q.value]));
+
+    // ------------------------------------------------------------ animation lifecycle + dispose check
+    function snapshot() {
+      renderer.render(scene, camera);   // so renderer.info.memory is current
+      return {
+        children: scene.children.length,
+        geometries: renderer.info.memory.geometries,
+        textures: renderer.info.memory.textures,
+        meshIndex: mesh ? scene.children.indexOf(mesh) : -1,
+        matrix: mesh ? mesh.matrixWorld.toArray() : null,
+        position: mesh ? mesh.position.toArray() : null,
+        quaternion: mesh ? mesh.quaternion.toArray() : null,
+        scale: mesh ? mesh.scale.toArray() : null,
+      };
+    }
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+    function startAnim() {
+      stopAnim();
+      if (!mesh || !job || !ua.hasUsageAnimation(job.template_id)) return;
+      baseline = snapshot();
+      anim = ua.createUsageAnimation({
+        THREE, scene, deviceMesh: mesh, templateId: job.template_id,
+        params: paramsObject(job), offset: meshOffset.clone(),
+      });
+      animTime = 0;
+      $("scrub").max = String(anim.duration);
+      window.__anim = anim;
+      fitCamera();
+    }
+
+    function stopAnim() {
+      if (!anim) return null;
+      anim.dispose();
+      anim = null;
+      window.__anim = null;
+      const after = snapshot();
+      const b = baseline;
+      const res = {
+        ok: !!b && after.children === b.children && after.meshIndex === b.meshIndex && same(after.matrix, b.matrix)
+          && same(after.position, b.position) && same(after.quaternion, b.quaternion) && same(after.scale, b.scale)
+          && after.geometries === b.geometries && after.textures === b.textures,
+        before: b, after,
+      };
+      window.__lastDisposeCheck = res;
+      $("check").innerHTML = `<span class="${res.ok ? "ok" : "bad"}">${res.ok ? "restored OK" : "NOT restored"}</span>
+        <br>scene children ${b?.children} -> ${after.children}, mesh index ${b?.meshIndex} -> ${after.meshIndex}
+        <br>GPU geometries ${b?.geometries} -> ${after.geometries}, textures ${b?.textures} -> ${after.textures}
+        <br>mesh transform ${same(after.matrix, b?.matrix) ? "identical" : "CHANGED"}`;
+      return res;
+    }
+
+    async function selectTemplate(id, { force = false } = {}) {
+      const my = ++token;
+      clearError();
+      stopAnim();
+      setStatus(`compiling ${id}`);
+      try {
+        const j = await compileTemplate(id, force);
+        if (my !== token) return;
+        setStatus("loading STL");
+        const geo = await loadGeometry(`${j.stl_url}?v=${j.version}`);
+        if (my !== token) { geo.dispose(); return; }
+        // exactly the transform of web/app.js
+        geo.rotateX(-Math.PI / 2);
+        geo.computeBoundingBox();
+        const bb = geo.boundingBox;
+        const c = new THREE.Vector3(); bb.getCenter(c);
+        meshOffset = new THREE.Vector3(-c.x, -bb.min.y, -c.z);
+        geo.translate(meshOffset.x, meshOffset.y, meshOffset.z);
+        geo.computeVertexNormals();
+        geo.computeBoundingBox();
+        if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
+        mesh = new THREE.Mesh(geo, material);
+        scene.add(mesh);
+        const size = new THREE.Vector3(); geo.boundingBox.getSize(size);
+        const center = new THREE.Vector3(); geo.boundingBox.getCenter(center);
+        fitState = { size, center };
+        job = j;
+        window.__mesh = mesh; window.__job = j; window.__offset = meshOffset.clone();
+        $("params").innerHTML = (j.params || []).map((q) => `<tr><td><code>${q.name}</code></td><td>${q.value}</td></tr>`).join("");
+        startAnim();
+        setStatus(`${id}: ${(size.x).toFixed(0)} x ${(size.z).toFixed(0)} x ${(size.y).toFixed(0)} mm, job ${j.id}`);
+      } catch (e) {
+        if (my === token) { setStatus("error"); showError(e); }
+      }
+    }
+
+    // ------------------------------------------------------------ UI
+    let ids = ["key_turner", "lever_turner", "built_up_handle", "cup_holder", "card_holder", "universal_cuff"];
+    let names = {};
+    try {
+      const r = await fetch("/api/templates");
+      if (r.ok) { const list = await r.json(); ids = list.map((t) => t.id); names = Object.fromEntries(list.map((t) => [t.id, t.name])); }
+    } catch (e) { /* fall back to the built-in list */ }
+    ids = ids.filter((id) => ua.hasUsageAnimation(id));
+    $("tpl").innerHTML = ids.map((id) => `<option value="${id}">${names[id] || id} (${id})</option>`).join("");
+    $("tpl").addEventListener("change", (e) => selectTemplate(e.target.value));
+    $("recompile").addEventListener("click", () => selectTemplate($("tpl").value, { force: true }));
+    $("play").addEventListener("click", () => { playing = !playing; $("play").textContent = playing ? "Pause" : "Play"; });
+    $("scrub").addEventListener("input", (e) => {
+      playing = false; $("play").textContent = "Play";
+      animTime = Number(e.target.value);
+      if (anim) anim.update(animTime);
+    });
+    $("fit").addEventListener("change", fitCamera);
+    $("refit").addEventListener("click", fitCamera);
+    $("restart").addEventListener("click", startAnim);
+
+    // hooks for automated checks
+    window.__THREE = THREE; window.__renderer = renderer; window.__resize = resize; window.__scene = scene; window.__camera = camera; window.__controls = controls;
+    window.__seek = (t) => {
+      playing = false; $("play").textContent = "Play";
+      animTime = Number(t) || 0;
+      if (anim) anim.update(animTime);
+      render();
+      return animTime;
+    };
+    // contact sheet: renders the animation at several times side by side into an overlay
+    // canvas (for screenshots in small browser panes); __sheet(null) hides it again.
+    window.__sheet = (times, mode = "bounds", zoom = 1) => {
+      let sh = document.getElementById("sheet");
+      if (!times) { if (sh) sh.hidden = true; resize(); fitCamera(); return null; }
+      if (!anim) return null;
+      playing = false; $("play").textContent = "Play";
+      const n = times.length, W = window.innerWidth, H = window.innerHeight, fw = Math.floor(W / n), k = 2;
+      if (!sh) {
+        sh = document.createElement("canvas"); sh.id = "sheet";
+        sh.style.cssText = "position:fixed;left:0;top:0;z-index:99;background:#f6f8f7";
+        document.body.appendChild(sh);
+      }
+      sh.hidden = false; sh.width = W * k; sh.height = H * k; sh.style.width = W + "px"; sh.style.height = H + "px";
+      const g = sh.getContext("2d");
+      g.fillStyle = "#f6f8f7"; g.fillRect(0, 0, sh.width, sh.height);
+      $("fit").value = mode; fitCamera();
+      if (zoom !== 1) camera.position.sub(controls.target).multiplyScalar(1 / zoom).add(controls.target);
+      renderer.setPixelRatio(1); renderer.setSize(fw * k, H * k, false);
+      camera.aspect = fw / H; camera.updateProjectionMatrix();
+      times.forEach((t, i) => {
+        anim.update(t); animTime = t;
+        renderer.render(scene, camera);
+        g.drawImage(renderer.domElement, i * fw * k, 0);
+        g.fillStyle = "#333"; g.font = `${11 * k}px sans-serif`; g.fillText(`t=${t}`, i * fw * k + 6, 14 * k);
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); resize();
+      return [W, H];
+    };
+    window.__play = () => { playing = true; $("play").textContent = "Pause"; };
+    window.__select = (id, opts) => { $("tpl").value = id; return selectTemplate(id, opts); };
+    window.__reloadModule = async () => { stopAnim(); ua = await import(`./usage_anim.js?v=${Date.now()}`); startAnim(); return true; };
+    window.__stop = stopAnim;
+    window.__start = startAnim;
+    window.__fit = (mode) => { if (mode) $("fit").value = mode; fitCamera(); };
+    window.__state = () => ({
+      template: job && job.template_id, duration: anim && anim.duration, time: animTime, playing,
+      sceneChildren: scene.children.length, meshParentIsScene: !!mesh && mesh.parent === scene,
+      bounds: anim && anim.bounds ? { min: anim.bounds.min.toArray(), max: anim.bounds.max.toArray() } : null,
+    });
+
+    if (ids.length) selectTemplate(ids[0]);
+    else showError("usage_anim.js reports no implemented templates");
+  </script>
+</body>
+</html>
