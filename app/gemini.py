@@ -124,7 +124,10 @@ def generate_json(model: str, parts: list[dict], schema: type[BaseModel], system
             last_err = e
             msg = str(e)
             transient = any(s in msg for s in ("429", "500", "502", "503", "504", "UNAVAILABLE", "RESOURCE_EXHAUSTED",
-                                               "status 'incomplete'", "validation error", "Invalid JSON"))
+                                               "status 'incomplete'", "validation error", "Invalid JSON",
+                                               # dropped connections (flaky Wi-Fi): safe to send again
+                                               "10054", "10053", "Connection", "ReadError", "RemoteProtocol",
+                                               "timed out", "Timeout"))
             if attempt < retries and transient:
                 time.sleep(2 * (attempt + 1))
                 continue
