@@ -514,6 +514,80 @@ def make_frames(out_dir: Path, *, device_render: Path, photo: Path | None, start
     return {"start": start, "end": end}
 
 
+def _storyboard_prompt(scene: str, step: int, total: int, with_photo: bool, with_prev: bool,
+                       caption: str = "") -> str:
+    refs = ["The FIRST image is an exact 3D render of one moment of real use (step "
+            f"{step} of {total}). The orange part is the 3D-printed assistive device; grey, white or "
+            "translucent objects are simple stand-ins for real everyday objects (a key and door lock, a jar, a "
+            "spoon, a cup, playing cards)."]
+    if caption:
+        refs.append(f"THIS STEP SHOWS: {_clean(caption, '', 400)} This state is mandatory and has priority "
+                    "over every other image.")
+    n = 2
+    if with_prev:
+        refs.append(f"Image {n} is the PREVIOUS step of this same sequence. Use it ONLY for the identity of "
+                    "the person, hand, clothing, room, lighting and camera. The device, the hand pose and the "
+                    "objects must change to the new state described above and shown in the render - do NOT "
+                    "copy their pose from the previous step.")
+        n += 1
+    if with_photo:
+        refs.append(f"Image {n} is a real photo of the person's surroundings and objects; use it for the "
+                    "setting and the look of the real objects.")
+    return "\n".join([
+        *refs,
+        "Turn the render into ONE photorealistic photo of that exact moment.",
+        "Keep exactly from the render: the camera angle and framing, and the position, orientation and shape "
+        "of the orange device and of every object relative to each other. Do not move, rotate, bend, break or "
+        "re-arrange anything. Replace each stand-in with the real object it represents, at the same place.",
+        "Add one natural adult hand (and forearm) that holds or operates the orange device exactly as this "
+        "pose implies, with a relaxed whole-hand grip and anatomically correct fingers.",
+        f"Setting: {_clean(scene, 'a bright, everyday home')}",
+        _DEVICE_SPEC,
+        _QUALITY,
+        _RESPECT,
+    ])
+
+
+def make_storyboard(out_dir: Path, *, poses: list[Path], photo: Path | None, scene_prompt: str,
+                    captions: list[str] | None = None, aspect_ratio: str = "16:9", on_progress=None) -> list[Path]:
+    """Photorealistic storyboard: one Nano Banana image per rendered pose of the real STL.
+
+    Each pose is image-to-image (allowed in the EEA). The previous generated frame is passed along so
+    person, hand and room stay consistent. Returns story_<n>.<ext> paths in out_dir.
+    """
+    out_dir = Path(out_dir)
+    poses = [_require_file(p, f"Pose {i + 1}") for i, p in enumerate(poses)]
+    if not poses:
+        raise ValueError("No poses given")
+    photo = _require_file(photo, "Photo") if photo else None
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cl = _image_client()
+    uploaded: list[str] = []
+    results: list[Path] = []
+    prev: tuple[bytes, Path] | None = None
+    try:
+        photo_part = _image_part(cl, photo, uploaded) if photo else None
+        for i, pose in enumerate(poses, start=1):
+            _notify(on_progress, "storyboard", f"Step {i}/{len(poses)}")
+            caption = captions[i - 1] if captions and i - 1 < len(captions) else ""
+            parts = [{"type": "text", "text": _storyboard_prompt(scene_prompt, i, len(poses),
+                                                                 with_photo=bool(photo_part), with_prev=bool(prev),
+                                                                 caption=caption)},
+                     _image_part(cl, pose, uploaded)]
+            if prev:
+                parts.append({"type": "image", "data": base64.b64encode(prev[0]).decode("ascii"),
+                              "mime_type": _image_mime(prev[1])})
+            if photo_part:
+                parts.append(photo_part)
+            data, mime = _generate_image(cl, f"Storyboard step {i}", parts, aspect_ratio)
+            path = _save_frame(out_dir, f"story_{i}", data, mime)
+            results.append(path)
+            prev = (data, path)
+    finally:
+        _delete_files(cl, uploaded)
+    return results
+
+
 def make_video(out_dir: Path, *, start_frame: Path, end_frame: Path, device_render: Path, motion_prompt: str,
                duration_s: int = 8, resolution: str = "720p", aspect_ratio: str = "16:9", timeout_s: int = 600,
                on_progress=None) -> Path:

@@ -3,6 +3,7 @@
 Run:  .venv\\Scripts\\python -m uvicorn app.main:app --reload --port 8000
 """
 
+import json
 import mimetypes
 import threading
 from pathlib import Path
@@ -177,6 +178,35 @@ def visualize(job_id: str, body: VisualizeIn):
     _require_key()
     job.visual = {**job.visual, "status": "running", "stage": "queued", "error": None}
     threading.Thread(target=pipeline.run_visualize, args=(job, body.with_video), daemon=True).start()
+    return {"job_id": job.id}
+
+
+@app.post("/api/jobs/{job_id}/storyboard")
+async def storyboard(job_id: str, poses: list[UploadFile] = File(...), captions: str = Form("[]")):
+    """Poses rendered in the browser from the real STL (web/storyboard.js) -> photorealistic storyboard."""
+    job = _job_or_404(job_id)
+    if not job.stl:
+        raise HTTPException(409, "No model yet")
+    if job.visual.get("status") == "running":
+        raise HTTPException(409, "Visualization already running")
+    _require_key()
+    out_dir = job.dir / f"visual_v{job.version}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    for i, f in enumerate(poses[:4]):
+        if not (f.content_type or "").startswith("image/"):
+            raise HTTPException(400, "Poses must be images")
+        dest = out_dir / f"pose_{i + 1}.png"
+        await _save_upload(f, dest)
+        paths.append(dest)
+    if not paths:
+        raise HTTPException(400, "No poses")
+    try:
+        caps = [str(c)[:400] for c in json.loads(captions)][:len(paths)]
+    except (ValueError, TypeError):
+        caps = []
+    job.visual = {**job.visual, "status": "running", "stage": "storyboard", "detail": "", "error": None}
+    threading.Thread(target=pipeline.run_storyboard, args=(job, paths, caps), daemon=True).start()
     return {"job_id": job.id}
 
 

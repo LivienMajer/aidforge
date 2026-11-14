@@ -620,6 +620,35 @@ def _animation_prompts(job: Job) -> tuple[str, str, str]:
             f"Calm, natural hand movement using the {name} to complete the everyday task, static camera.")
 
 
+def run_storyboard(job: Job, poses: list[Path], captions: list[str] | None = None) -> None:
+    """Realistic storyboard from rendered poses of the real STL (three.js usage animation)."""
+    from . import visualize
+
+    t0 = time.time()
+    version = job.version
+    out_dir = job.dir / f"visual_v{version}"
+
+    def progress(stage: str, detail: str = "") -> None:
+        job.visual.update({"stage": stage, "detail": detail[:200]})
+
+    try:
+        scene = _animation_prompts(job)[0]
+        captions = captions or []
+        frames = visualize.make_storyboard(out_dir, poses=poses, photo=job.visual_photo, scene_prompt=scene,
+                                           captions=captions, on_progress=progress)
+        job.visual.update({"status": "done", "stage": "done", "version": version,
+                           "storyboard": [{"step": i + 1, "url": _rel_url(p),
+                                           "caption": captions[i] if i < len(captions) else ""}
+                                          for i, p in enumerate(frames)],
+                           "pose_urls": [_rel_url(p) for p in poses],
+                           "seconds": round(time.time() - t0)})
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc()
+        job.visual.update({"status": "error", "error": str(e)[:400]})
+    finally:
+        job.save()
+
+
 def run_visualize(job: Job, with_video: bool) -> None:
     from . import visualize  # imported lazily: heavy and only needed on demand
 
