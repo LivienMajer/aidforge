@@ -35,7 +35,7 @@ from .gemini import client as _shared_client
 log = logging.getLogger(__name__)
 
 IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gemini-nano-banana-2.1")
-VIDEO_MODEL = os.environ.get("VIDEO_MODEL", "gemini-omni-1.2-flash")
+VIDEO_MODEL = os.environ.get("VIDEO_MODEL", "gemini-omni-flash-preview")
 
 IMAGE_SIZES = ("512", "1K", "2K", "4K")  # SDK literal; must be uppercase
 IMAGE_SIZE = os.environ.get("IMAGE_SIZE", "1K").strip().upper()

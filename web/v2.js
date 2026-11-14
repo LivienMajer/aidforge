@@ -71,7 +71,7 @@ const I18N = {
       improve: "Agentischer Prüf- & Korrektur-Loop …", review: "Prüfe Druckbarkeit …", refine: "Passe Modell an …",
     },
     hudKicker: "Agentische CAD-Pipeline",
-    archFlow: "Gemini Vision → OpenSCAD 2021 → Trimesh-Raycasting → Manifold STL",
+    archFlow: "Gemini Vision → OpenSCAD 2021 → NumPy-Raycasting → Manifold STL",
     archD1: "1. Multimodale Analyse & Fotogrammetrie-Skalierung",
     archD2: "2. Parametrische Template-Wahl oder OpenSCAD-Synthese",
     archD3: "3. CGAL-Kompilierung mit automatischem Compile-Self-Repair",
@@ -80,9 +80,9 @@ const I18N = {
       { key: "analyze", num: "01", label: "Multimodale Analyse", tech: "Gemini Vision · Fotogrammetrie", desc: "Erkennt Einschränkung, Objektgeometrie & Referenzmaße." },
       { key: "design", num: "02", label: "CAD-Synthese", tech: "Parametrik · OpenSCAD 2021", desc: "Wählt verifiziertes Template oder generiert parametrischen Code." },
       { key: "compile", num: "03", label: "Compile & Self-Repair", tech: "OpenSCAD CGAL · STL-Export", desc: "Kompiliert 3D-Mesh und repariert Syntaxfehler automatisch." },
-      { key: "improve", num: "04", label: "Agentischer QA-Loop", tech: "Trimesh-Raycasting · Multi-View", desc: "Prüft Wandstärke, 45°-Überhänge, Druckbett & Multi-Angle-Renders." },
+      { key: "improve", num: "04", label: "Agentischer QA-Loop", tech: "NumPy-Raycasting · Multi-View", desc: "Prüft Wandstärke, 45°-Überhänge, Druckbett & Multi-Angle-Renders." },
     ],
-    verSource: { initial: "Erstentwurf", review: "Geprüft", manual: "Manuell", refine: "Angepasst" },
+    verSource: { initial: "Erstentwurf", review: "Geprüft", review_fix: "KI-Review-Fix", checks_fix: "Check-Fix", repair: "Repariert", manual: "Manuell", refine: "Angepasst" },
     visStages: {
       queued: "Startet …", render: "Rendere Posen …", frames: "Erzeuge Bilder …",
       storyboard: "Erzeuge Fotostrecke …", upload: "Lade hoch …", video: "Erzeuge Video …", download: "Lade …", done: "Fertig",
@@ -151,7 +151,7 @@ const I18N = {
       improve: "Agentic review & repair loop …", review: "Checking printability …", refine: "Adapting model …",
     },
     hudKicker: "Agentic CAD pipeline",
-    archFlow: "Gemini Vision → OpenSCAD 2021 → Trimesh Raycasting → Manifold STL",
+    archFlow: "Gemini Vision → OpenSCAD 2021 → NumPy Raycasting → Manifold STL",
     archD1: "1. Multimodal analysis & photogrammetry scaling",
     archD2: "2. Parametric template selection or OpenSCAD synthesis",
     archD3: "3. CGAL compilation with automatic compile self-repair",
@@ -160,9 +160,9 @@ const I18N = {
       { key: "analyze", num: "01", label: "Multimodal Analysis", tech: "Gemini Vision · Photogrammetry", desc: "Extracts functional limits, object geometry & scale." },
       { key: "design", num: "02", label: "CAD Synthesis", tech: "Parametric · OpenSCAD 2021", desc: "Selects verified template or writes parametric OpenSCAD code." },
       { key: "compile", num: "03", label: "Compile & Self-Repair", tech: "OpenSCAD CGAL · STL Export", desc: "Compiles 3D mesh and auto-repairs any compiler errors." },
-      { key: "improve", num: "04", label: "Agentic QA Loop", tech: "Trimesh Raycasting · Multi-View", desc: "Checks wall thickness, 45° overhangs, bed fit & rendered views." },
+      { key: "improve", num: "04", label: "Agentic QA Loop", tech: "NumPy Raycasting · Multi-View", desc: "Checks wall thickness, 45° overhangs, bed fit & rendered views." },
     ],
-    verSource: { initial: "Initial", review: "Reviewed", manual: "Manual", refine: "Refined" },
+    verSource: { initial: "Initial", review: "Reviewed", review_fix: "AI review fix", checks_fix: "Check fix", repair: "Repaired", manual: "Manual", refine: "Refined" },
     visStages: {
       queued: "Starting …", render: "Rendering poses …", frames: "Generating images …",
       storyboard: "Generating photo story …", upload: "Uploading …", video: "Generating video …", download: "Downloading …", done: "Done",
@@ -937,7 +937,7 @@ function renderJob(job, { force = false } = {}) {
   lb.hidden = !its.length;
   vp.innerHTML = its.map((it) => {
     const srcLbl = t("verSource")[it.source] || it.source || "";
-    const ic = it.checks?.counts || (it.version === job.version ? job.checks?.counts : null);
+    const ic = it.checks?.counts || it.checks || (it.version === job.version ? job.checks?.counts : null);
     const stCls = ic ? (ic.fail ? "fail" : ic.warn ? "warn" : "ok") : "";
     const stGlyph = ic ? (ic.fail ? "✕" : ic.warn ? "!" : "✓") : "";
     return `<button type="button" class="v-btn ${it.version === viewingVersion ? "active" : ""}" data-v="${it.version}">
@@ -1006,7 +1006,22 @@ function renderDetails(job) {
     printLine = printLine.replace(/\binfill\b/gi, "Füllung").replace(/\bno supports\b/gi, "ohne Stützen").replace(/\bwith supports\b/gi, "mit Stützen");
   }
   const meas = (!useLoc && p?.measurements?.length)
-    ? `<table class="kv">${p.measurements.map((m) => `<tr><th>${esc(m.name)}</th><td>${fmt(m.value_mm)} mm</td></tr>`).join("")}</table>` : "";
+    ? `${p.scale_reference?.detected ? `<p class="muted small-txt">📏 ${esc(p.scale_reference.object)}${p.scale_reference.known_size_mm ? ` (${fmt(p.scale_reference.known_size_mm)} mm)` : ""}</p>` : ""}
+       <table class="kv">${p.measurements.map((m) => `<tr title="${esc(m.method || m.source || "")}"><th>${esc(m.name)}</th><td>${fmt(m.value_mm)}${m.uncertainty_mm > 0 ? ` ± ${fmt(m.uncertainty_mm)}` : ""} mm</td></tr>`).join("")}</table>` : "";
+
+  // AI analysis: what was observed (with timestamps), why each parameter, and the review critique per version
+  const de = lang === "de";
+  const ev = (!useLoc && p?.functional_assessment?.evidence) || [];
+  const evHtml = ev.length ? `<div><h4>${de ? "Beobachtungen der KI" : "What the AI observed"}</h4><ul>${ev.map((e) =>
+    `<li><b>${esc(e.ref || e.source)}</b>: ${esc(e.observation)} → ${esc(e.design_consequence)}</li>`).join("")}</ul></div>` : "";
+  const rat = (!useLoc && p?.parameter_rationale) || [];
+  const ratHtml = rat.length ? `<div><h4>${de ? "Warum diese Werte" : "Why these values"}</h4><ul>${rat.map((r) =>
+    `<li><b>${esc(paramLabel(r.name))} ${fmt(r.value)}</b>: ${esc(r.reason)}</li>`).join("")}</ul></div>` : "";
+  const crit = (job.iterations || []).filter((it) => it.version != null && (it.critique || it.note));
+  const critHtml = crit.length ? `<div><h4>${de ? "QA-Loop: Kritik je Version" : "QA loop: critique per version"}</h4><ul>${crit.map((it) =>
+    `<li><b>v${it.version}</b>: ${esc(it.critique || it.note)}${Object.keys(it.changed || {}).length
+      ? ` <span class="muted">(${Object.entries(it.changed).map(([k, v]) => `${esc(paramLabel(k))} ${fmt(v[0])} → ${fmt(v[1])}`).join(", ")})</span>` : ""}</li>`).join("")}</ul></div>` : "";
+  const story = (!useLoc && p?.persona_story) ? `<p><em>${esc(p.persona_story)}</em></p>` : "";
 
   const checksList = job.checks?.checks || [];
   const checksHtml = checksList.length ? `
@@ -1031,7 +1046,11 @@ function renderDetails(job) {
     </div>` : "";
 
   $("details-body").innerHTML = `
+    ${story}
     ${checksHtml}
+    ${critHtml}
+    ${evHtml}
+    ${ratHtml}
     ${reqs.length ? `<div><h4>${t("whyDesign")}</h4><ul>${reqs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
     ${meas ? `<div><h4>${t("measTitle")}</h4>${meas}</div>` : ""}
     ${printLine ? `<div><h4>${t("printTitle")}</h4><p>${esc(printLine)}</p></div>` : ""}

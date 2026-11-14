@@ -390,7 +390,9 @@ def _plan_for_cad(plan: DesignPlan) -> str:
     keep = {k: v for k, v in plan.model_dump().items() if k in (
         "device_name", "task_summary", "functional_limitations", "root_problem", "design_requirements",
         "measurements", "custom_design_brief", "how_it_helps", "print_settings")}
-    return "Model this assistive device in OpenSCAD.\n\nDESIGN PLAN:\n" + json.dumps(keep, indent=2, ensure_ascii=False)
+    return ("Model this assistive device in OpenSCAD. The values in `measurements` are authoritative: where "
+            "custom_design_brief states a different size for the same dimension, use the measurement.\n\n"
+            "DESIGN PLAN:\n" + json.dumps(keep, indent=2, ensure_ascii=False))
 
 
 def _checks_for_prompt(job: Job) -> list[dict]:
