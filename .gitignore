@@ -6,3 +6,5 @@ uploads/
 *.pyc
 *.pdf
 .claude/settings.local.json
+demo_inputs/raw_office/
+demo_inputs/key_real_coin.jpg

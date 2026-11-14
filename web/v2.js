@@ -4,7 +4,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 let usageAnim = null;
 let storyboardMod = null;
-import("/static/usage_anim.js").then((m) => { usageAnim = m; if (currentJob) updateAnimBtn(currentJob); }).catch(() => {});
+import("/static/usage_anim.js?v=2").then((m) => { usageAnim = m; if (currentJob) updateAnimBtn(currentJob); }).catch(() => {});
 import("/static/storyboard.js").then((m) => { storyboardMod = m; if (currentJob) renderVisual(currentJob); }).catch(() => {});
 
 const I18N = {
