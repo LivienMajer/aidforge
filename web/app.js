@@ -13,7 +13,7 @@ const I18N = {
     tagline: "Vom Alltagsproblem zum druckfertigen Hilfsmittel",
     mediaTitle: "Situation zeigen",
     dropText: "Foto oder kurzes Video hochladen",
-    dropHint: "z. B. der Schlüssel, das Glas, die Hand beim Versuch – gern mit Münze/Karte als Größenreferenz",
+    dropHint: "z. B. der Schlüssel, das Glas, die Hand beim Versuch. Für genaue Maße: Objekt flach, von oben fotografieren, Bankkarte oder Münze direkt daneben.", // --- precise-measurement ---
     impTitle: "Einschränkung",
     impPh: "z. B. Rheumatoide Arthritis, kaum Kraft im Pinzettengriff",
     actTitle: "Aktivität",
@@ -107,7 +107,7 @@ const I18N = {
     tagline: "From everyday barrier to print-ready assistive device",
     mediaTitle: "Show the situation",
     dropText: "Upload a photo or short video",
-    dropHint: "e.g. the key, the jar, the hand trying – ideally with a coin/card for scale",
+    dropHint: "e.g. the key, the jar, the hand trying. For exact sizes: photograph the object flat, from above, with a bank card or coin right next to it.", // --- precise-measurement ---
     impTitle: "Impairment",
     impPh: "e.g. rheumatoid arthritis, very weak pinch grip",
     actTitle: "Activity",
@@ -644,7 +644,7 @@ function renderAnalysis(job) {
     return;
   }
   const meas = p.measurements?.length
-    ? `<table class="kv">${p.measurements.map((m) => `<tr><th>${esc(m.name)}</th><td>${fmt(m.value_mm)} mm ${srcLabel(m.source)}</td></tr>`).join("")}</table>`
+    ? `<table class="kv">${p.measurements.map((m) => `<tr><th>${esc(m.name)}</th><td>${fmt(m.value_mm)}${m.uncertainty_mm > 0 ? ` ± ${fmt(m.uncertainty_mm)}` : ""} mm ${srcLabel(m.source)}</td></tr>` /* --- precise-measurement: ± --- */).join("")}</table>`
     : "<p class='muted'>–</p>";
   const sr = p.scale_reference;
   const scale = sr && sr.detected

@@ -14,6 +14,7 @@ import uuid
 from pathlib import Path
 
 from . import cad, config, gemini, prompts
+from . import measure  # --- precise-measurement ---
 from .schemas import CadDesign, DesignPlan, RefineParams, Review
 from .templates_registry import BY_ID, resolve_params
 
@@ -506,6 +507,11 @@ def run_generate(job: Job, media: list[tuple[Path, str]], impairment: str, activ
         parts.append(gemini.text(_user_brief(impairment, activity, notes, len(media))))
         plan: DesignPlan = gemini.generate_json(config.ANALYSIS_MODEL, parts, DesignPlan,
                                                 prompts.analysis_system(job.language), thinking="medium")
+        job.plan = plan
+        # --- precise-measurement ---
+        plan = measure.refine_plan(plan, photos=[p for p, m in media if m.startswith("image/")] or
+                                   ([job.visual_photo] if job.visual_photo else []),
+                                   on_progress=lambda d: job.step("analyze", "running", d), language=job.language)
         job.plan = plan
         use_template = plan.approach.strip().lower() == "template" and plan.template_id in BY_ID
         job.step("analyze", "done", plan.device_name)
