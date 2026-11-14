@@ -32,7 +32,13 @@ const I18N = {
     resultTitle: "Ergebnis",
     emptyText: "Dein Hilfsmittel erscheint hier als druckfertiges 3D-Modell.",
     wire: "Gitter",
+    autoRotate: "Drehen",
     resetView: "Ansicht zurücksetzen",
+    fullscreen: "Vollbild",
+    showDetails: "Details einblenden",
+    hideDetails: "Seitenleiste einklappen",
+    moreOptions: "Mehr Optionen",
+    editInput: "Bearbeiten",
     playAnim: "Benutzung zeigen",
     stopAnim: "Animation stoppen",
     dlStl: "STL herunterladen",
@@ -43,7 +49,7 @@ const I18N = {
     tabParams: "Parameter",
     tabPrint: "Druck & Nutzung",
     tabReview: "Prüfung",
-    tabVisual: "So könnte es aussehen",
+    tabVisual: "Visualisierung",
     tabCode: "Code",
     rebuild: "Neu bauen",
     copy: "Kopieren",
@@ -85,10 +91,12 @@ const I18N = {
     aiLabel: "KI-Visualisierung",
     aiNote: "zeigt, wie echte Benutzung aussehen könnte – nicht maßstabsgetreu.",
     visFrames: "Vorher/Nachher-Bilder erzeugen",
-    visVideo: "Animation erzeugen",
-    visHintPhoto: "Nutzt dein Foto als Szene. Video dauert 1–3 Minuten.",
-    visHintNoPhoto: "Ohne Foto wird eine typische Alltagsszene erzeugt. Video dauert 1–3 Minuten.",
-    visStages: { queued: "Startet …", render: "Rendere Modell …", frames: "Nano Banana erzeugt Start- und Endbild …", upload: "Lade Bilder hoch …", video: "Omni erzeugt das Video …", download: "Lade Video …", done: "Fertig" },
+    visVideo: "Video (experimentell)",
+    visStory: "Realistische Bildstrecke erzeugen",
+    visStep: "Schritt",
+    visHintPhoto: "Die Bildstrecke entsteht aus der 3D-Animation des echten Modells und nutzt dein Foto als Szene (~90 s).",
+    visHintNoPhoto: "Die Bildstrecke entsteht aus der 3D-Animation des echten Modells in einer typischen Alltagsszene (~90 s).",
+    visStages: { queued: "Startet …", render: "Rendere Modell …", frames: "Nano Banana erzeugt Start- und Endbild …", storyboard: "Nano Banana macht aus jeder 3D-Pose ein Foto …", upload: "Lade Bilder hoch …", video: "Omni erzeugt das Video …", download: "Lade Video …", done: "Fertig" },
     visStart: "Start", visEnd: "Geschafft", visOld: "Diese Visualisierung gehört zu Version {v}.",
     recentEmpty: "Noch keine gespeicherten Ergebnisse.",
     impChips: ["Rheumatoide Arthritis, schwacher Griff", "Tremor in beiden Händen", "Nur eine Hand nutzbar (Schlaganfall)", "Tetraplegie C6 – kein aktiver Faustschluss"],
@@ -118,7 +126,13 @@ const I18N = {
     resultTitle: "Result",
     emptyText: "Your assistive device will appear here as a print-ready 3D model.",
     wire: "Wireframe",
+    autoRotate: "Auto-rotate",
     resetView: "Reset view",
+    fullscreen: "Fullscreen",
+    showDetails: "Show details",
+    hideDetails: "Collapse sidebar",
+    moreOptions: "More options",
+    editInput: "Edit",
     playAnim: "Show usage",
     stopAnim: "Stop animation",
     dlStl: "Download STL",
@@ -129,7 +143,7 @@ const I18N = {
     tabParams: "Parameters",
     tabPrint: "Print & use",
     tabReview: "Review",
-    tabVisual: "How it could look",
+    tabVisual: "Visualization",
     tabCode: "Code",
     rebuild: "Rebuild",
     copy: "Copy",
@@ -171,10 +185,12 @@ const I18N = {
     aiLabel: "AI visualization",
     aiNote: "shows what real use could look like – not to scale.",
     visFrames: "Generate before/after images",
-    visVideo: "Generate animation",
-    visHintPhoto: "Uses your photo as the scene. Video takes 1–3 minutes.",
-    visHintNoPhoto: "Without a photo a typical everyday scene is generated. Video takes 1–3 minutes.",
-    visStages: { queued: "Starting …", render: "Rendering model …", frames: "Nano Banana creates start and end image …", upload: "Uploading images …", video: "Omni creates the video …", download: "Downloading video …", done: "Done" },
+    visVideo: "Video (experimental)",
+    visStory: "Generate realistic storyboard",
+    visStep: "Step",
+    visHintPhoto: "The storyboard is built from the 3D animation of the real model, using your photo as the scene (~90 s).",
+    visHintNoPhoto: "The storyboard is built from the 3D animation of the real model in a typical everyday scene (~90 s).",
+    visStages: { queued: "Starting …", render: "Rendering model …", frames: "Nano Banana creates start and end image …", storyboard: "Nano Banana turns each 3D pose into a photo …", upload: "Uploading images …", video: "Omni creates the video …", download: "Downloading video …", done: "Done" },
     visStart: "Start", visEnd: "Done", visOld: "This visualization belongs to version {v}.",
     recentEmpty: "No saved results yet.",
     impChips: ["Rheumatoid arthritis, weak grip", "Tremor in both hands", "Only one usable hand (stroke)", "Tetraplegia C6 – no active fist"],
@@ -190,6 +206,11 @@ function applyI18n() {
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    const label = t(el.dataset.i18nTitle);
+    el.title = label;
+    el.setAttribute("aria-label", label);
+  });
   document.querySelectorAll(".lang button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
   document.querySelectorAll(".mic").forEach((b) => { b.title = t("micStart"); });
   renderChips();
@@ -221,7 +242,7 @@ function renderChips() {
   for (const [id, key, target] of [["chips-imp", "impChips", "impairment"], ["chips-act", "actChips", "activity"]]) {
     const box = $(id);
     box.innerHTML = "";
-    for (const text of t(key)) {
+    for (const text of t(key).slice(0, 3)) {
       const b = document.createElement("button");
       b.type = "button"; b.className = "chip"; b.textContent = text;
       b.addEventListener("click", () => { $(target).value = text; $(target).focus(); });
@@ -329,26 +350,69 @@ async function toggleMic(btn) {
   btn.title = t("micStop");
 }
 
+// ------------------------------------------------------------------ theme toggle
+const themeBtn = $("btn-theme");
+function applyTheme(mode) {
+  document.documentElement.dataset.theme = mode;
+  try { localStorage.setItem("aidforge-theme", mode); } catch {}
+}
+const savedTheme = (() => { try { return localStorage.getItem("aidforge-theme"); } catch { return null; } })();
+if (savedTheme === "dark" || savedTheme === "light") {
+  applyTheme(savedTheme);
+} else if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+  applyTheme("dark");
+} else {
+  applyTheme("light");
+}
+themeBtn?.addEventListener("click", () => {
+  applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+});
+
 // ------------------------------------------------------------------ 3D viewer
 const viewerEl = $("viewer");
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 viewerEl.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 5000);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-scene.add(new THREE.HemisphereLight(0xffffff, 0x8a9590, 1.6));
-const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+controls.autoRotateSpeed = 1.8;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a9590, 1.55));
+const sun = new THREE.DirectionalLight(0xffffff, 2.3);
 sun.position.set(150, 260, 180);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.near = 20;
+sun.shadow.camera.far = 700;
+const d = 160;
+sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
+sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
+sun.shadow.bias = -0.0005;
 scene.add(sun);
-const fill = new THREE.DirectionalLight(0xffffff, 0.7);
+const fill = new THREE.DirectionalLight(0xdbeafe, 0.75);
 fill.position.set(-200, 80, -150);
 scene.add(fill);
+const rim = new THREE.DirectionalLight(0x99f6e4, 0.45);
+rim.position.set(0, 120, -220);
+scene.add(rim);
 const grid = new THREE.GridHelper(220, 22, 0x7a8a85, 0xc4ccc9);
-grid.material.transparent = true; grid.material.opacity = 0.55;
+grid.material.transparent = true; grid.material.opacity = 0.42;
+grid.visible = false;
 scene.add(grid);
-const material = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.55, metalness: 0.05 });
+const shadowPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(400, 400),
+  new THREE.ShadowMaterial({ opacity: 0.14 })
+);
+shadowPlane.rotation.x = -Math.PI / 2;
+shadowPlane.position.y = -0.1;
+shadowPlane.receiveShadow = true;
+scene.add(shadowPlane);
+const material = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.48, metalness: 0.06 });
 let mesh = null;
 let meshOffset = new THREE.Vector3();
 let fitState = null;
@@ -399,6 +463,9 @@ function loadStl(url) {
     geo.computeBoundingBox();
     if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
     mesh = new THREE.Mesh(geo, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    grid.visible = true;
     scene.add(mesh);
     const size = new THREE.Vector3(); geo.boundingBox.getSize(size);
     const center = new THREE.Vector3(); geo.boundingBox.getCenter(center);
@@ -415,6 +482,16 @@ $("btn-wire").addEventListener("click", (e) => {
   material.wireframe = !material.wireframe;
   e.currentTarget.setAttribute("aria-pressed", String(material.wireframe));
 });
+$("btn-rotate")?.addEventListener("click", (e) => {
+  controls.autoRotate = !controls.autoRotate;
+  e.currentTarget.setAttribute("aria-pressed", String(controls.autoRotate));
+});
+document.querySelectorAll("#filament-colors .swatch").forEach((sw) => {
+  sw.addEventListener("click", () => {
+    material.color.set(sw.dataset.color);
+    document.querySelectorAll("#filament-colors .swatch").forEach((b) => b.classList.toggle("active", b === sw));
+  });
+});
 
 // ------------------------------------------------------------------ usage animation (three.js, no API)
 function paramsObject(job) {
@@ -428,13 +505,19 @@ function canAnimate(job) {
 function updateAnimButton(job) {
   const b = $("btn-anim");
   b.hidden = !canAnimate(job) || viewingVersion !== job.version;
-  b.textContent = anim ? t("stopAnim") : t("playAnim");
+  const label = anim ? t("stopAnim") : t("playAnim");
+  b.title = label;
+  b.setAttribute("aria-label", label);
   b.setAttribute("aria-pressed", String(!!anim));
 }
 
 function startAnimation() {
   if (!canAnimate(currentJob) || !mesh) return;
   stopAnimation();
+  if (controls.autoRotate) {
+    controls.autoRotate = false;
+    $("btn-rotate")?.setAttribute("aria-pressed", "false");
+  }
   anim = usageAnim.createUsageAnimation({
     THREE, scene, deviceMesh: mesh, templateId: currentJob.template_id,
     params: paramsObject(currentJob), offset: meshOffset.clone(),
@@ -453,6 +536,71 @@ function stopAnimation() {
 
 $("btn-anim").addEventListener("click", () => { if (anim) { stopAnimation(); fitCamera(); } else startAnimation(); });
 
+// ------------------------------------------------------------------ workspace layout (composer, sidebar, fullscreen)
+const workspaceEl = $("workspace");
+const composerBarEl = $("composer-bar");
+const composerToggleBtn = $("btn-composer-toggle");
+const detailsToggleBtn = $("btn-details-toggle");
+const detailsOpenBtn = $("btn-details-open");
+const viewerWrapEl = $("viewer-wrap");
+const fullscreenBtn = $("btn-fullscreen");
+
+function setComposerCollapsed(collapsed, { persist = true } = {}) {
+  workspaceEl.classList.toggle("composer-collapsed", collapsed);
+  composerToggleBtn?.setAttribute("aria-expanded", String(!collapsed));
+  if (persist) {
+    try { localStorage.setItem("aidforge-composer-collapsed", collapsed ? "1" : "0"); } catch {}
+  }
+}
+
+function setDetailsCollapsed(collapsed) {
+  workspaceEl.classList.toggle("details-collapsed", collapsed);
+  detailsToggleBtn?.setAttribute("aria-expanded", String(!collapsed));
+  detailsOpenBtn?.setAttribute("aria-expanded", String(!collapsed));
+  if (detailsOpenBtn) detailsOpenBtn.hidden = !collapsed || !currentJob?.stl_url;
+}
+
+function updateComposerSummary(job) {
+  // the summary describes the OPENED job (its own inputs), not whatever is typed in the composer right now
+  const fromJob = job && job.inputs && (job.inputs.impairment || job.inputs.activity);
+  const imp = (fromJob ? job.inputs.impairment || "" : $("impairment").value).trim();
+  const act = (fromJob ? job.inputs.activity || "" : $("activity").value).trim();
+  const parts = [];
+  if (imp) parts.push(imp);
+  if (act) parts.push(act);
+  let summary = parts.join(" · ");
+  if (!summary && job) {
+    summary = job.plan?.device_name || job.template_name || job.id || "";
+  }
+  $("composer-summary-text").textContent = summary;
+  composerBarEl.hidden = !job;
+}
+
+composerToggleBtn?.addEventListener("click", () => {
+  const isCollapsed = workspaceEl.classList.contains("composer-collapsed");
+  setComposerCollapsed(!isCollapsed, { persist: true });
+});
+
+detailsToggleBtn?.addEventListener("click", () => setDetailsCollapsed(true));
+detailsOpenBtn?.addEventListener("click", () => setDetailsCollapsed(false));
+
+fullscreenBtn?.addEventListener("click", async () => {
+  try {
+    if (document.fullscreenElement === viewerWrapEl) {
+      await document.exitFullscreen();
+    } else {
+      await viewerWrapEl.requestFullscreen();
+    }
+  } catch (e) { console.error(e); }
+});
+
+document.addEventListener("fullscreenchange", () => {
+  const fs = document.fullscreenElement === viewerWrapEl;
+  viewerWrapEl.classList.toggle("is-fullscreen", fs);
+  fullscreenBtn?.setAttribute("aria-pressed", String(fs));
+  setTimeout(resize, 50);
+});
+
 // ------------------------------------------------------------------ tabs
 document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
 function selectTab(name) {
@@ -469,9 +617,12 @@ let renderedKey = "";
 
 function renderSteps(job) {
   const ol = $("steps");
-  ol.hidden = !job.steps?.length;
+  const steps = job.steps || [];
+  ol.hidden = !steps.length;
+  const hasRunning = steps.some((s) => s.status === "running");
+  ol.classList.toggle("is-done", steps.length > 0 && !hasRunning);
   const icon = { done: "✓", error: "✕", skipped: "–" };
-  ol.innerHTML = (job.steps || []).map((s) => `
+  ol.innerHTML = steps.map((s) => `
     <li class="${s.status}">
       <span class="icon" aria-hidden="true">${icon[s.status] || ""}</span>
       <div><strong>${esc(t("steps")[s.key] || s.key)}</strong><small>${esc(s.detail || "")}</small></div>
@@ -659,12 +810,20 @@ function showStl(url, version) {
 }
 
 // ---- AI visualization
-let visPolling = false;
+let storyboardMod = null;  // web/storyboard.js: real-STL poses -> photorealistic storyboard
+import("/static/storyboard.js").then((m) => { storyboardMod = m; if (currentJob) renderVisual(currentJob); }).catch(() => {});
 function renderVisual(job) {
   const v = job.visual || { status: "idle" };
   const running = v.status === "running";
   $("vis-frames").disabled = running || !job.stl_url;
   $("vis-video").disabled = running || !job.stl_url;
+  const canStory = !!(storyboardMod && job.approach === "template" && storyboardMod.hasStoryboard(job.template_id));
+  $("vis-story").hidden = !canStory;
+  $("vis-story").disabled = running || !job.stl_url;
+  const story = (v.storyboard || []).map((s) =>
+    `<figure><img src="${s.url}" alt="${esc(s.caption || "")}"><figcaption><b>${t("visStep")} ${s.step}</b></figcaption></figure>`).join("");
+  const so = $("vis-story-out");
+  if (so.dataset.html !== story) { so.innerHTML = story; so.dataset.html = story; }
   $("vis-hint").textContent = job.has_photo ? t("visHintPhoto") : t("visHintNoPhoto");
   let status = "";
   if (running) status = (t("visStages")[v.stage] || v.stage || "") + (v.detail ? ` ${v.detail}` : "");
@@ -694,12 +853,28 @@ async function startVisual(withVideo) {
   } catch (e) { $("vis-status").textContent = t("errorPrefix") + e.message; }
 }
 $("vis-frames").addEventListener("click", () => startVisual(false));
+$("vis-story").addEventListener("click", async () => {
+  if (!currentJob || !storyboardMod) return;
+  $("vis-story").disabled = true;
+  $("vis-status").textContent = t("visStages").render;
+  try {
+    await storyboardMod.requestStoryboard(currentJob.id, {
+      stlUrl: currentJob.stl_url, templateId: currentJob.template_id, params: paramsObject(currentJob),
+    });
+    poll(currentJob.id);
+  } catch (e) {
+    $("vis-story").disabled = false;
+    $("vis-status").textContent = t("errorPrefix") + e.message;
+  }
+});
 $("vis-video").addEventListener("click", () => startVisual(true));
 
 // ---- main render
 function renderJob(job, { force = false } = {}) {
   const sameJob = currentJob && currentJob.id === job.id;
   currentJob = job;
+  workspaceEl.classList.add("has-job");
+  updateComposerSummary(job);
   renderSteps(job);
   renderVisual(job);
   if (!job.stl_url) return;
@@ -714,6 +889,7 @@ function renderJob(job, { force = false } = {}) {
   }
   $("viewer-bar").hidden = false;
   $("result").hidden = false;
+  if (detailsOpenBtn) detailsOpenBtn.hidden = !workspaceEl.classList.contains("details-collapsed");
   $("dl-stl").href = job.stl_url;
   $("dl-stl").setAttribute("download", `${(job.plan?.device_name || job.template_id || "aid").replace(/[^\w-]+/g, "_")}.stl`);
   $("dl-scad").href = job.scad_url;
@@ -776,6 +952,9 @@ function openJob(jobId) {
   renderedKey = "";
   fitState = null;
   showError("");
+  workspaceEl.classList.add("has-job");
+  setComposerCollapsed(true, { persist: true });
+  updateComposerSummary({ id: jobId });
   try { history.replaceState(null, "", `?job=${jobId}`); } catch {}
   poll(jobId);
 }
