@@ -3,6 +3,7 @@
 import base64
 import os
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -19,19 +20,28 @@ def has_key() -> bool:
     return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
 
 
+_client_lock = threading.Lock()
+
+
 def client() -> genai.Client:
+    """Shared client. Created once under a lock: concurrent jobs creating several clients made one of
+    them close its HTTP connection pool ("Cannot send a request, as the client has been closed")."""
     global _client
     if _client is None:
-        _client = genai.Client()  # reads GEMINI_API_KEY from the environment
+        with _client_lock:
+            if _client is None:
+                _client = genai.Client()  # reads GEMINI_API_KEY from the environment
     return _client
 
 
 def media_part(path: Path, mime: str) -> tuple[dict, str | None]:
     """Return an input part for an image/video and, if uploaded, the Files API name (to delete later)."""
     kind = "video" if mime.startswith("video/") else "image"
+    # short clips of a person's attempt: sample 4 fps (default is 1) so grip slips and tremor are visible
+    extra = {"processing": {"type": "static", "fps": 4}} if kind == "video" else {}
     if path.stat().st_size <= config.INLINE_MAX_BYTES:
         data = base64.b64encode(path.read_bytes()).decode("utf-8")
-        return {"type": kind, "data": data, "mime_type": mime}, None
+        return {"type": kind, "data": data, "mime_type": mime, **extra}, None
     f = client().files.upload(file=str(path), config={"mime_type": mime})
     deadline = time.time() + 300
     while not f.state or f.state.name != "ACTIVE":
@@ -41,7 +51,7 @@ def media_part(path: Path, mime: str) -> tuple[dict, str | None]:
             raise RuntimeError("Timed out waiting for the uploaded video to be processed")
         time.sleep(3)
         f = client().files.get(name=f.name)
-    return {"type": kind, "uri": f.uri, "mime_type": f.mime_type or mime}, f.name
+    return {"type": kind, "uri": f.uri, "mime_type": f.mime_type or mime, **extra}, f.name
 
 
 def delete_files(names: list[str]) -> None:

@@ -28,6 +28,7 @@ TEMPLATE_DIR = ROOT / "app" / "scad_templates"
 WEB_DIR = ROOT / "web"
 OUTPUT_DIR = ROOT / "outputs"          # served at /outputs (models, renders, AI visuals)
 OUTPUT_DIR.mkdir(exist_ok=True)
+CASES_DIR = ROOT / "demo_inputs" / "cases"   # demo cases (served at /cases, see /api/cases)
 UPLOAD_DIR = ROOT / "uploads"          # NOT served: user photos/videos
 UPLOAD_DIR.mkdir(exist_ok=True)
 

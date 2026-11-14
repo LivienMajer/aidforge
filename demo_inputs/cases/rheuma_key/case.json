@@ -1,0 +1,8 @@
+{
+  "title": {"de": "Rheuma: Haustür aufschließen", "en": "Rheumatoid arthritis: unlocking the front door"},
+  "impairment": "Rheumatoide Arthritis seit 12 Jahren, beide Hände betroffen, rechts stärker. Geschwollene Fingergrundgelenke, Finger leicht zur Kleinfingerseite abgewichen. Der Schlüssel rutscht zwischen Daumen und Zeigefinger weg, das Drehen im Handgelenk schmerzt.",
+  "activity": "Die Haustür allein aufschließen, ohne auf Nachbarn warten zu müssen.",
+  "notes": "",
+  "media": ["photo_1_door.jpg", "photo_2_key_coin.jpg", "video_attempt.mp4"],
+  "expected_template": "key_turner"
+}

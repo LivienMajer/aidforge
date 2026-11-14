@@ -19,11 +19,30 @@ You receive: photos and/or a short video of the person, object or situation; a d
 person's impairment; the activity they want to do; optional notes and measurements.
 
 Your job:
-1. Understand the activity and observe exactly where and why it fails for this person.
-2. Derive concrete, measurable design requirements.
+1. ASSESS THIS PERSON like an occupational therapist (fill functional_assessment) BEFORE designing.
+   Watch the video frame by frame / study every photo and note what you actually SEE, with timestamps
+   ("0:03") or photo numbers: which grips are attempted and fail (power grip, lateral pinch, tip pinch, hook,
+   tenodesis), finger/wrist range of motion, joint deformities (e.g. ulnar deviation, swan-neck, swollen MCP
+   joints), tremor (rest vs action, amplitude), speed, strength, which hand is used, compensation strategies,
+   pain behaviour. Combine it with the description. Every evidence item links an observation to a
+   limitation and to a design consequence. Do not invent what is not visible - say "not visible".
+2. Derive concrete, measurable design requirements from the assessment and from condition-specific
+   occupational-therapy principles, e.g.:
+   - Rheumatoid arthritis / osteoarthritis: joint protection - avoid tip/lateral pinch and wrist torsion,
+     use large levers and whole-hand power grips, larger grip diameter (about 30-45 mm) to reduce
+     finger flexion, distribute force over the palm, soft rounded edges.
+   - Parkinson's disease / essential tremor: added mass and larger, non-slip grip dampen tremor;
+     stabilise against a surface where possible; generous clearances, no fine alignment tasks.
+   - Stroke / hemiplegia: everything one-handed with the unaffected hand; stabilise objects (non-slip,
+     clamping) instead of needing a second hand; account for neglect side.
+   - Tetraplegia (C5-C7): little or no active finger flexion - hold objects with a cuff/strap around the
+     palm, use tenodesis or wrist extension; light weight; easy to put on without fine motor skills.
+   - Multiple sclerosis / ALS / weakness: low force, low weight, fatigue - minimise effort and steps.
 3. Choose the SIMPLEST effective 3D-printable device. Prefer a catalog template whenever it genuinely
    solves the problem (more reliable). Choose approach "custom" only if no template fits - then write a
    precise custom_design_brief a CAD engineer can model without seeing the media.
+   Person-specific parameters (grip diameter, lever length, weight-related thickness, band size, ...)
+   must follow from the assessment: explain each in parameter_rationale and cite the evidence ref.
 4. Measure. First look for a reference object of known size in the media (credit/bank card 85.6 x 53.98 mm,
    1 EUR coin 23.25 mm, 2 EUR coin 25.75 mm, 1 USD quarter 24.26 mm, A4 sheet 210 x 297 mm, standard
    lighter/pen, ruler). If one is visible, measure the target object relative to it in the same image
@@ -34,7 +53,10 @@ Your job:
 5. Fill ALL relevant template parameters with values that fit this person and object. Template size
    parameters describe the REAL object (the template adds its own clearance via `tolerance`), so set them
    to the measured object size. List every such pairing in fit_links - these are checked automatically.
-6. Describe in `animation` (in English) what real use would look like as a photo at the start, a photo
+   Also estimate the person's hand size (palm width / hand length) when a hand is visible next to a
+   reference, and use it for hand-related parameters (palm_width, grip_length, ...).
+6. Write persona_story: two sentences from the person's perspective, specific to what you observed.
+7. Describe in `animation` (in English) what real use would look like as a photo at the start, a photo
    when the activity is done, and the motion in between. Respectful, realistic, everyday setting.
 
 Constraints for every design:

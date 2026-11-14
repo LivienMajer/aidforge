@@ -1,0 +1,8 @@
+{
+  "title": {"de": "Parkinson: selbstständig Suppe essen", "en": "Parkinson's: eating soup independently"},
+  "impairment": "Parkinson, Tremor vor allem in der rechten Hand, beim Führen des Löffels zum Mund deutlich stärker. Dünne Löffel rutschen und die Suppe schwappt heraus.",
+  "activity": "Suppe mit einem Löffel essen, ohne zu kleckern und ohne Hilfe.",
+  "notes": "",
+  "media": ["photo_1_spoon_coin.jpg", "video_attempt.mp4"],
+  "expected_template": "built_up_handle"
+}

@@ -74,3 +74,29 @@ kürzer und professioneller. **Keine Textwände, nichts Abgeschnittenes.**
 3. Storyboard-Lightbox mit 3 Bildern bei `?job=dbea3f6b6b`.
 4. Hell/Dunkel, DE/EN, 1280×800 (Timeline ohne Scrollen sichtbar), 375 px mobil ohne horizontales
    Scrollen, 0 Konsolenfehler.
+
+---
+
+## Nachtrag: Personalisierung & Demo-Fälle (neu im Backend)
+
+**Neue Felder in `job.plan`** (ältere Jobs: leer → Abschnitt ausblenden):
+- `functional_assessment`: `condition`, `usable_hand`, `grip_status`, `range_of_motion`, `tremor`,
+  `strength`, `hand_size_mm`, `compensations[]`, `evidence[]`.
+  `evidence[]` = `{source: video|photo|text, ref: "0:03" | "Foto 2", observation, limitation, design_consequence}`.
+- `parameter_rationale[]` = `{name, value, reason}` – warum dieser Wert für genau diese Person.
+- `persona_story` – 2 Sätze aus Sicht der Person.
+
+**Darstellung (Vorschlag):**
+- Panel *Analyse* beginnt mit einer **„Befund“-Karte**: Griff-Status als Ampel-Chips (ok / schwach / fehlt),
+  Tremor, nutzbare Hand. Darunter die **Belege als Timeline**: Zeitstempel-Chip („▶ 0:03“) → Beobachtung →
+  Pfeil → Design-Konsequenz. Klick auf den Zeitstempel springt im hochgeladenen Video an die Stelle
+  (Video-Vorschau im Panel; Medien eines Demo-Falls liegen unter `media_urls`, s. u.).
+- Panel *Parameter*: pro Regler ein kleines **„Warum?“**-Icon mit `parameter_rationale.reason` als Tooltip.
+- `persona_story` als Zitat in der Ergebnis-Karte bzw. oben im Analyse-Panel.
+
+**Demo-Fälle (für den Startbildschirm, ein Klick):**
+- `GET /api/cases` → `[{id, title: {de, en}, impairment, activity, notes, media[], media_urls[], expected_template}]`
+- `POST /api/cases/{id}/run` mit `{"language": "de", "review": true}` → `{job_id}` (dann wie gewohnt pollen).
+- Vorhanden: `rheuma_key`, `parkinson_spoon`, `tetra_toothbrush` (Testmedien sind KI-generiert und werden
+  durch echte Aufnahmen mit gleichem Dateinamen ersetzt).
+- Vorschlag: auf dem Start-Composer 3 Karten „Beispiel ausprobieren“ mit Vorschaubild (`media_urls[0]`) + Titel.

@@ -1,0 +1,8 @@
+{
+  "title": {"de": "Tetraplegie C6: Zähne putzen", "en": "Tetraplegia C6: brushing teeth"},
+  "impairment": "Tetraplegie nach Sportunfall, Querschnitt C6. Handgelenk kann angehoben werden, die Finger lassen sich nicht aktiv beugen - nur ein schwacher Tenodesegriff.",
+  "activity": "Die Zahnbürste selbst halten und allein Zähne putzen.",
+  "notes": "",
+  "media": ["photo_1_hand_card.jpg", "video_attempt.mp4"],
+  "expected_template": "universal_cuff"
+}

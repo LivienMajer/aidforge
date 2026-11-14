@@ -19,6 +19,8 @@ from .templates_registry import BY_ID, TEMPLATES
 app = FastAPI(title=config.APP_NAME)
 app.mount("/static", StaticFiles(directory=config.WEB_DIR), name="static")
 app.mount("/outputs", StaticFiles(directory=config.OUTPUT_DIR), name="outputs")
+if config.CASES_DIR.exists():
+    app.mount("/cases", StaticFiles(directory=config.CASES_DIR), name="cases")
 
 pipeline.load_saved_jobs()  # results survive restarts (demo safety net)
 
@@ -105,6 +107,55 @@ async def create_job(
         await _save_upload(still, dest)
         job.visual_photo = dest
     threading.Thread(target=pipeline.run_generate, args=(job, media, impairment, activity, notes),
+                     daemon=True).start()
+    return {"job_id": job.id}
+
+
+def _load_case(case_id: str) -> dict:
+    f = config.CASES_DIR / case_id / "case.json"
+    if not cad.NAME_RE.match(case_id) or not f.exists():
+        raise HTTPException(404, "Unknown case")
+    case = json.loads(f.read_text(encoding="utf-8"))
+    case["id"] = case_id
+    case["media"] = [m for m in case.get("media", []) if (config.CASES_DIR / case_id / m).exists()]
+    return case
+
+
+@app.get("/api/cases")
+def list_cases():
+    """Prepared demo cases (demo_inputs/cases/<id>/case.json + media)."""
+    out = []
+    for f in sorted(config.CASES_DIR.glob("*/case.json")) if config.CASES_DIR.exists() else []:
+        c = _load_case(f.parent.name)
+        out.append({**c, "media_urls": [f"/cases/{c['id']}/{m}" for m in c["media"]]})
+    return out
+
+
+class CaseRunIn(BaseModel):
+    language: str = "de"
+    review: bool = True
+
+
+@app.post("/api/cases/{case_id}/run")
+def run_case(case_id: str, body: CaseRunIn):
+    """Start a normal generation job with a demo case's media and texts (one click in the UI)."""
+    _require_key()
+    case = _load_case(case_id)
+    job = pipeline.Job(language=body.language, review=body.review)
+    job.upload_dir.mkdir(parents=True, exist_ok=True)
+    media: list[tuple[Path, str]] = []
+    for i, name in enumerate(case["media"]):
+        src = config.CASES_DIR / case_id / name
+        mime = mimetypes.guess_type(name)[0] or ""
+        if not (mime.startswith("image/") or mime.startswith("video/")):
+            continue
+        dest = job.upload_dir / f"input_{i}{src.suffix.lower()}"
+        dest.write_bytes(src.read_bytes())
+        media.append((dest, mime))
+        if job.visual_photo is None and mime.startswith("image/"):
+            job.visual_photo = dest
+    threading.Thread(target=pipeline.run_generate,
+                     args=(job, media, case.get("impairment", ""), case.get("activity", ""), case.get("notes", "")),
                      daemon=True).start()
     return {"job_id": job.id}
 

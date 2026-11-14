@@ -64,10 +64,48 @@ class PlanBrief(BaseModel):
     print_line: str = Field(default="", description="Print settings in one line, e.g. 'PETG · 0.2 mm · 30 % infill · no supports'.")
 
 
+class Evidence(BaseModel):
+    source: str = Field(description="'video' / 'photo' / 'text'.")
+    ref: str = Field(description="Where exactly: video timestamp like '0:03' or '0:02-0:05', 'photo 2', or "
+                                 "'description'.")
+    observation: str = Field(description="What is concretely seen, neutral and specific "
+                                         "(e.g. 'thumb-index pinch slips off the key head twice').")
+    limitation: str = Field(description="The functional limitation it shows (e.g. 'weak lateral pinch').")
+    design_consequence: str = Field(description="What the device must do because of it "
+                                                "(e.g. 'replace pinch by whole-hand power grip').")
+
+
+class FunctionalAssessment(BaseModel):
+    condition: str = Field(default="", description="Diagnosis/condition as understood, incl. affected side.")
+    usable_hand: str = Field(default="", description="'left' / 'right' / 'both' / 'none' + short note.")
+    grip_status: str = Field(default="", description="Which grips work and which do not: power grip, lateral pinch, "
+                                                     "tip pinch, hook grip, tenodesis - each with 'ok'/'weak'/'absent'.")
+    range_of_motion: str = Field(default="", description="Wrist and finger ROM relevant to the task (e.g. 'wrist "
+                                                         "supination limited, fingers cannot flex fully').")
+    tremor: str = Field(default="", description="'none' or type + severity + when (rest/action), as observed.")
+    strength: str = Field(default="", description="Estimated grip/turning strength relative to typical adults.")
+    hand_size_mm: str = Field(default="", description="Estimated palm width / hand length in mm and how it was "
+                                                      "estimated, or 'unknown'.")
+    compensations: list[str] = Field(default_factory=list, description="Compensation strategies seen "
+                                     "(e.g. 'uses second hand to stabilise', 'rotates whole forearm').")
+    evidence: list[Evidence] = Field(default_factory=list, description="3-8 concrete observations from the media "
+                                     "and the description, each linked to a design consequence.")
+
+
+class ParamRationale(BaseModel):
+    name: str = Field(description="Exact template parameter name.")
+    value: float
+    reason: str = Field(description="Why this value for THIS person, max 20 words, citing the evidence ref "
+                                    "(e.g. 'Lever 110 mm: very low turning strength (video 0:04), joint protection').")
+
+
 class DesignPlan(BaseModel):
     task_summary: str = Field(description="What the person wants to do, in one or two sentences.")
     observed_in_media: str = Field(description="What is visible in the image(s)/video that matters for the design: "
                                                "objects, their size, how the person currently tries to do the task.")
+    functional_assessment: FunctionalAssessment = Field(default_factory=FunctionalAssessment,
+                                                        description="Occupational-therapy style assessment of THIS "
+                                                                    "person, grounded in the media.")
     functional_limitations: list[str] = Field(description="Concrete functional limitations relevant to this task "
                                                           "(e.g. 'cannot form a pinch grip', 'tremor in dominant hand').")
     root_problem: str = Field(description="Why exactly the activity fails today.")
@@ -78,6 +116,9 @@ class DesignPlan(BaseModel):
     template_id: str = Field(description="The chosen template_id if approach is 'template', else an empty string.")
     template_parameters: list[ParamValue] = Field(description="Values for the chosen template's parameters "
                                                               "(only those that differ from the default are required).")
+    parameter_rationale: list[ParamRationale] = Field(default_factory=list,
+                                                      description="For every person-specific template parameter "
+                                                                  "(not object-fit sizes): why this value.")
     fit_links: list[FitLink] = Field(description="For every template parameter that describes the size of a real "
                                                  "object the device must fit around/into: which measurement it "
                                                  "must match. Empty for custom designs.")
@@ -85,6 +126,9 @@ class DesignPlan(BaseModel):
                                                  "for a CAD engineer - shapes, all key dimensions in mm, features, how it "
                                                  "attaches to the object, print orientation. Else an empty string.")
     device_name: str = Field(description="Short, friendly name of the device.")
+    persona_story: str = Field(default="", description="Two sentences in the person's perspective: who they are "
+                                                       "(only what is known/visible), what fails today and what the "
+                                                       "device changes. Respectful, no pity.")
     how_it_helps: str = Field(description="Two or three sentences: how the device compensates for the limitation.")
     usage_steps: list[str]
     print_settings: PrintSettings
