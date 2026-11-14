@@ -443,6 +443,40 @@ function renderPresets() {
     });
     box.appendChild(b);
   });
+  renderCases(box);
+}
+
+// Prepared demo cases (demo_inputs/cases): one click runs the full pipeline WITH their photos / videos,
+// so measurement from the reference object and the video assessment are part of the demo.
+let demoCases = null;
+async function renderCases(box) {
+  try { demoCases = demoCases || await api("/api/cases"); } catch { return; }
+  if (!demoCases.length) return;
+  box.innerHTML = "";
+  demoCases.forEach((c) => {
+    const b = document.createElement("button");
+    const nVid = c.media.filter((m) => /\.(mp4|mov|webm)$/i.test(m)).length, nImg = c.media.length - nVid;
+    b.type = "button"; b.className = "preset-chip";
+    b.textContent = `▶ ${c.title?.[lang] || c.title?.de || c.id}`;
+    b.title = `${nImg ? `${nImg} 📷 ` : ""}${nVid ? `${nVid} 🎬 ` : ""}· ${c.impairment}`;
+    b.addEventListener("click", async () => {
+      $("impairment").value = c.impairment || "";
+      $("activity").value = c.activity || "";
+      showError("");
+      $("go").disabled = true; $("go").querySelector("span").textContent = t("working");
+      try {
+        const { job_id } = await api(`/api/cases/${c.id}/run`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language: lang, review: true }),
+        });
+        openJob(job_id);
+      } catch (err) {
+        $("go").disabled = false; $("go").querySelector("span").textContent = t("go");
+        showError(err.message);
+      }
+    });
+    box.appendChild(b);
+  });
 }
 
 // ------------------------------------------------------------------ media & mic
