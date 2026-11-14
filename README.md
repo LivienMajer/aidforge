@@ -4,6 +4,34 @@ Eingabe: **Foto/Video** + **Einschränkung** + **Aktivität** (getippt oder per 
 Ausgabe: **druckfertiges 3D-Modell (STL + OpenSCAD)** eines Hilfsmittels, das genau diese Aktivität
 ermöglicht – plus eine **KI-Visualisierung**, wie die echte Benutzung aussehen könnte.
 
+## In short (English)
+
+**AidForge turns a photo of an everyday problem into a print-ready, custom-fit assistive device.**
+A person with arthritis, tremor or one usable hand takes a photo of the object (with a coin for scale),
+describes what is hard and what should work – and gets an STL that fits *their* object, in about a minute.
+
+- **Problem:** assistive aids exist, but off-the-shelf parts rarely fit the specific object or hand, and
+  custom ones need an occupational therapist plus a CAD engineer.
+- **How Gemini is used:** multimodal analysis with structured output (situation → requirements → design plan),
+  point location for photo measurement, OpenSCAD code generation for objects without a template,
+  visual review of renders in an agentic check-and-improve loop, image/video generation of the device in use,
+  speech input.
+- **Not just an LLM wrapper:** the model only *locates* points; scale and millimetres are computed
+  geometrically from a reference object (`app/measure.py`). Every version is compiled with OpenSCAD and
+  verified by deterministic printability checks (`app/checks.py`: watertight mesh, wall thickness by
+  raycasting, overhangs, bed contact, fit of device vs. measured object) before Gemini reviews it.
+
+### Measured on real phone photos (1-euro coin as reference)
+
+| Case | Path | Photo measurement | Checks | Time |
+|---|---|---|---|---|
+| Bottle cap, weak grip | template `lever_turner` | cap Ø 35.0 ± 0.3 mm | 8 / 8 | ~1 min |
+| House key, rheumatoid arthritis | template `key_turner` | key head 27.9 × 26.0 ± 0.4 mm | 10 / 10 | ~1 min |
+| Mains plug, weak grip | **no template – Gemini writes the OpenSCAD** | shape from photo (low-contrast object, measurement uncertain) | 7 / 7 | ~2.5 min |
+
+Known limits: only dimensions lying flat in the plane of the reference object can be measured; dark objects
+with hard shadows measure poorly; the usage animation exists for template devices only.
+
 ## Pipeline
 
 ```
@@ -72,7 +100,8 @@ Jedes Ergebnis ist per Link `http://localhost:8000/?job=<id>` direkt aufrufbar �
 | `app/templates_registry.py`, `app/scad_templates/` | Vorlagen-Katalog + parametrische Modelle |
 | `web/` | UI (Vanilla JS + three.js per CDN), `usage_anim.js` = Benutzungs-Animation |
 | `scripts/smoke_visualize.py` | Manueller Test der Bild/Video-Generierung |
-| `demo_inputs/` | Testfotos (z. B. Schlüssel mit 1-€-Münze, KI-generiert) |
+| `app/measure.py` | Präzise Maße aus Fotos: Gemini lokalisiert Punkte, Geometrie rechnet in mm um |
+| `demo_inputs/cases/` | Demo-Fälle (`case.json` + Medien); `weak_grip_bottle` und `weak_grip_plug` sind echte Handyfotos, die übrigen KI-generierte Platzhalter |
 
 ## Demo-Szenarien
 
