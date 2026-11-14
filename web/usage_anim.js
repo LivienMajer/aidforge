@@ -54,6 +54,9 @@ const MAT = {
   honey: { color: 0xd99a32, metalness: 0, roughness: 0.35, opacity: 0.85 },
   label: { color: 0xf3ecdc, metalness: 0, roughness: 0.8, side: "double" },
   lid: { color: 0x9ea8b2, metalness: 0.55, roughness: 0.35 },
+  bottleGlass: { color: 0x3f9a63, metalness: 0, roughness: 0.08, opacity: 0.45, depthWrite: false, side: "double" },
+  water: { color: 0xbfe3ee, metalness: 0, roughness: 0.2, opacity: 0.55 },
+  cap: { color: 0xf2f3f5, metalness: 0, roughness: 0.6 },
   tea: { color: 0xa8612a, metalness: 0, roughness: 0.2, opacity: 0.85, side: "double" },
   food: { color: 0xead8a0, metalness: 0, roughness: 0.85 },
   card: { color: 0xffffff, metalness: 0, roughness: 0.6 },
@@ -270,30 +273,32 @@ function leverTurner(k, p, root, device) {
   if (device) devG.add(device);
 
   // --- jar (glass + honey + label) and lid, standing on the grid under the cap axis
-  const rb = od / 2 + clamp(od * 0.08, 2, 6);
-  const hb = clamp(od * 1.05, 45, 130);
-  const rn = od / 2 - 1;
+  // small screw caps (<= 45 mm) sit on a bottle, wide lids on a jar
+  const bottle = od <= 45;
+  const rb = bottle ? Math.max(od * 0.78, od / 2 + 8) : od / 2 + clamp(od * 0.08, 2, 6);
+  const hb = bottle ? clamp(od * 3.6, 100, 135) : clamp(od * 1.05, 45, 130);
+  const rn = bottle ? od / 2 - 3 : od / 2 - 1;
   const lidH = p.grip_depth + 4;
   const lidBase = hb - 3, lidTopY = lidBase + lidH;
   const jarG = k.group(root);
   jarG.position.set(P.x, 0, P.z);
   const jar = k.prop(jarG);
-  const honeyH = hb * 0.6;
-  const honey = jar.mesh(new THREE.CylinderGeometry(rb - 2.6, rb - 2.6, honeyH, 48).translate(0, 2.6 + honeyH / 2, 0), jar.mat(MAT.honey));
+  const honeyH = hb * (bottle ? 0.5 : 0.6);
+  const honey = jar.mesh(new THREE.CylinderGeometry(rb - 2.6, rb - 2.6, honeyH, 48).translate(0, 2.6 + honeyH / 2, 0), jar.mat(bottle ? MAT.water : MAT.honey));
   honey.renderOrder = 1;
-  const shoulder = Math.min(14, hb * 0.2), neck = 5;
+  const shoulder = bottle ? hb * 0.42 : Math.min(14, hb * 0.2), neck = bottle ? hb * 0.14 : 5;
   const pts = [k.v2(0, 0), k.v2(rb - 4, 0), k.v2(rb - 1, 1), k.v2(rb, 4), k.v2(rb, hb - shoulder)];
   for (let i = 1; i <= 6; i++) {
     const s = i / 6;
     pts.push(k.v2(lerp(rb, rn, (1 - Math.cos(Math.PI * s)) / 2), lerp(hb - shoulder, hb - neck, s)));
   }
   pts.push(k.v2(rn, hb), k.v2(0, hb));
-  const glass = jar.mesh(new THREE.LatheGeometry(pts, 64), jar.mat(MAT.glass));
+  const glass = jar.mesh(new THREE.LatheGeometry(pts, 64), jar.mat(bottle ? MAT.bottleGlass : MAT.glass));
   glass.renderOrder = 2;
-  jar.mesh(new THREE.CylinderGeometry(rb + 0.35, rb + 0.35, hb * 0.34, 64, 1, true).translate(0, hb * 0.4, 0), jar.mat(MAT.label));
+  jar.mesh(new THREE.CylinderGeometry(rb + 0.35, rb + 0.35, hb * (bottle ? 0.26 : 0.34), 64, 1, true).translate(0, hb * (bottle ? 0.3 : 0.4), 0), jar.mat(MAT.label));
   const lidG = k.group(jarG);
   const lid = k.prop(lidG);
-  lid.mesh(new THREE.CylinderGeometry(od / 2, od / 2, lidH, 72).translate(0, lidBase + lidH / 2, 0), lid.mat(MAT.lid));
+  lid.mesh(new THREE.CylinderGeometry(od / 2, od / 2, lidH, 72).translate(0, lidBase + lidH / 2, 0), lid.mat(bottle ? MAT.cap : MAT.lid));
 
   // --- poses
   const Rflip = Math.hypot(Math.max(Do, lw) / 2, Math.max(H / 2, lh - H / 2));
