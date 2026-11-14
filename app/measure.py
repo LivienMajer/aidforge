@@ -3,7 +3,7 @@
 Gemini only LOCATES points in the photo (reference object + two end points per dimension, normalised 0..1000);
 Python converts them to millimetres:
   - coin    -> mm per pixel from its diameter (larger of the two axes; a tilted coin looks elliptical)
-  - card/A4 -> perspective correction: homography from the 4 corners onto the known rectangle in mm
+  - card/paper -> perspective correction: homography from the 4 corners onto the known rectangle in mm
 The measuring call runs N times in parallel; median = value, half the spread = +/- uncertainty.
 The result updates plan.measurements (source "reference"), the linked template_parameters (fit_links) and the
 template's `tolerance`. Values with source "user" are never touched. Every error falls back to the unchanged plan.
@@ -42,7 +42,13 @@ TOLERANCE_GAIN = 0.5          # tolerance = base + gain * max(uncertainty of the
 # known reference sizes in mm: circle -> diameter, rectangle -> (long, short)
 CIRCLES = {"coin_1_eur": 23.25, "coin_2_eur": 25.75, "coin_50_cent": 24.25, "coin_20_cent": 22.25,
            "coin_10_cent": 19.75, "coin_5_cent": 21.25, "quarter_usd": 24.26}
-RECTS = {"card": (85.60, 53.98), "a4": (297.0, 210.0)}
+RECTS = {"card": (85.60, 53.98), "a4": (297.0, 210.0), "a5": (210.0, 148.0), "a6": (148.0, 105.0),
+         "letter": (279.4, 215.9)}
+
+
+def _key(name: str) -> str:
+    """Dimension names are matched like pipeline.fit_checks does: case- and whitespace-insensitive."""
+    return " ".join(name.lower().split())
 
 
 # ---- structured output of the locating call ---------------------------------------------------
@@ -54,13 +60,17 @@ class P2(BaseModel):
 
 class ReferenceMarks(BaseModel):
     kind: str = Field(description="One of: " + ", ".join([*CIRCLES, *RECTS, "none"]) + ". 'card' = any ISO "
-                      "ID-1 card (bank/credit/health insurance card).")
+                      "ID-1 card (bank/credit/health insurance card). Paper: a4 = 297 x 210 mm, a5 = exactly half "
+                      "of A4 (210 x 148 mm, an A4 sheet folded once), a6 = half of A5 (148 x 105 mm), letter = US "
+                      "Letter 279.4 x 215.9 mm.")
     coin_left: P2 = Field(description="Coin only: leftmost point of the coin's rim. 0,0 otherwise.")
     coin_right: P2 = Field(description="Coin only: rightmost point of the coin's rim. 0,0 otherwise.")
     coin_top: P2 = Field(description="Coin only: topmost point of the coin's rim. 0,0 otherwise.")
     coin_bottom: P2 = Field(description="Coin only: bottommost point of the coin's rim. 0,0 otherwise.")
-    corners: list[P2] = Field(description="Card / A4 only: the 4 outer corners, going around the rectangle "
-                                          "(e.g. clockwise from top-left). Empty otherwise.")
+    corners: list[P2] = Field(description="Card / paper only: the 4 outer corners in order around the "
+                                          "rectangle, starting at any corner and going FIRST ALONG A LONG SIDE "
+                                          "(corner 1 -> corner 2 is a long edge of the real object, even if it "
+                                          "looks shorter in the photo). Empty otherwise.")
 
 
 class LineMark(BaseModel):
@@ -78,12 +88,15 @@ class MeasureMarks(BaseModel):
 SYSTEM = """You are a precise photogrammetry assistant. You do NOT estimate sizes. You only locate points in the
 image as accurately as possible, in normalised coordinates (y and x from 0 to 1000; y=0 top, x=0 left).
 
-1. Reference object: identify the coin, card or A4 sheet used for scale and mark it.
+1. Reference object: identify the coin, card or sheet of paper used for scale and mark it.
    - Coin: seen at an angle it is an ellipse. Mark the leftmost, rightmost, topmost and bottommost points of
      the rim of its FLAT TOP FACE (the face you see), not of the coin's side edge / thickness band below it
      and not of its shadow.
-   - Card / A4 sheet: its 4 outer corners in order around the rectangle (where the edges would meet if the
-     corners are rounded).
+   - Card / paper sheet: its 4 outer corners in order around the rectangle (where the edges would meet if the
+     corners are rounded), starting with a LONG edge of the real object (corner 1 -> 2 = long edge).
+   - Paper size: A4, A5 and A6 have the same shape, so decide the size by comparing with other objects (hand,
+     coin, card, key). A5 is exactly half of A4 (A4 folded once), A6 is half of A5. If a coin is visible too and
+     you are not sure about the paper size, use the coin.
    - If there is no such object, kind = "none".
 2. For every requested dimension: two end points EXACTLY ON the object's outer silhouette - the boundary where
    the object ends and the background begins - on opposite sides, so that the straight segment between them
@@ -124,10 +137,22 @@ def order_cyclic(pts: np.ndarray) -> np.ndarray:
 
 
 def rect_homography(corners_px: np.ndarray, long_mm: float, short_mm: float) -> np.ndarray:
-    """Homography image px -> mm plane of a rectangle of known size; long side = longer pair in the image."""
+    """Homography image px -> mm plane of a rectangle of known size.
+
+    corners_px[0] -> corners_px[1] is a long edge (Gemini knows which side of a card/sheet is long; under strong
+    perspective the image lengths can say the opposite). If those two points are not adjacent, the long side is
+    taken as the longer pair in the image."""
     q = order_cyclic(corners_px)
-    d = [np.linalg.norm(q[i] - q[(i + 1) % 4]) for i in range(4)]
-    if d[0] + d[2] >= d[1] + d[3]:
+    i0 = int(np.argmin(np.linalg.norm(q - corners_px[0], axis=1)))
+    i1 = int(np.argmin(np.linalg.norm(q - corners_px[1], axis=1)))
+    if i1 == (i0 + 1) % 4:
+        q, long_first = np.roll(q, -i0, axis=0), True
+    elif i1 == (i0 - 1) % 4:
+        q, long_first = np.roll(q[::-1], -(3 - i0), axis=0), True
+    else:
+        d = [np.linalg.norm(q[i] - q[(i + 1) % 4]) for i in range(4)]
+        long_first = d[0] + d[2] >= d[1] + d[3]
+    if long_first:
         dst = np.array([[0, 0], [long_mm, 0], [long_mm, short_mm], [0, short_mm]], dtype=float)
     else:
         dst = np.array([[0, 0], [short_mm, 0], [short_mm, long_mm], [0, long_mm]], dtype=float)
@@ -158,7 +183,7 @@ def couple_tolerance(base: float, max_unc: float, lo: float, hi: float) -> float
 
 
 def measure_marks(marks: MeasureMarks, w: int, h: int) -> tuple[dict[str, float], dict]:
-    """Convert one locating result to {dimension name: mm} plus info about the reference."""
+    """Convert one locating result to {_key(dimension name): mm} plus info about the reference."""
     ref = marks.reference
     kind = ref.kind.strip().lower()
     lines = [ln for ln in marks.lines if ln.visible]
@@ -168,7 +193,7 @@ def measure_marks(marks: MeasureMarks, w: int, h: int) -> tuple[dict[str, float]
         hm = rect_homography(np.array([to_px(p, w, h) for p in ref.corners]), long_mm, short_mm)
         for ln in lines:
             a, b = apply_h(hm, np.array([to_px(ln.p1, w, h), to_px(ln.p2, w, h)]))
-            out[ln.name] = float(np.linalg.norm(a - b))
+            out[_key(ln.name)] = float(np.linalg.norm(a - b))
         # floor: one locating step (LOCATE_FLOOR/1000 of the image) mapped to mm at the card's centre
         c = np.array([[w / 2, h / 2], [w / 2 + LOCATE_FLOOR / 1000 * w, h / 2]])
         cm = apply_h(hm, c)
@@ -178,7 +203,7 @@ def measure_marks(marks: MeasureMarks, w: int, h: int) -> tuple[dict[str, float]
         pts = [to_px(p, w, h) for p in (ref.coin_left, ref.coin_right, ref.coin_top, ref.coin_bottom)]
         mmpp, ratio = coin_scale(*pts, CIRCLES[kind])
         for ln in lines:
-            out[ln.name] = float(np.linalg.norm((to_px(ln.p1, w, h) - to_px(ln.p2, w, h)) * mmpp))
+            out[_key(ln.name)] = float(np.linalg.norm((to_px(ln.p1, w, h) - to_px(ln.p2, w, h)) * mmpp))
         return out, {"kind": kind, "method": "coin", "floor_mm": LOCATE_FLOOR / 1000 * max(w, h) * float(mmpp.max()),
                      "tilt": ratio}
     return {}, {"kind": "none"}
@@ -189,29 +214,30 @@ def measure_marks(marks: MeasureMarks, w: int, h: int) -> tuple[dict[str, float]
 def apply_results(plan: DesignPlan, results: dict[str, tuple[float, float, str]], language: str = "de") -> DesignPlan:
     """results: {measurement name: (value_mm, uncertainty_mm, method)} -> updated copy of the plan."""
     plan = plan.model_copy(deep=True)
-    by_name = {m.name: m for m in plan.measurements}
+    by_name = {_key(m.name): m for m in plan.measurements}
     changed: dict[str, Measurement] = {}
     for name, (val, unc, method) in results.items():
-        m = by_name.get(name)
+        m = by_name.get(_key(name))
         if m is None or m.source == "user":
             continue
         m.value_mm, m.uncertainty_mm, m.method, m.source = round(val, 1), round(unc, 1), method, "reference"
-        changed[name] = m
+        changed[_key(name)] = m
     if not changed:
         return plan
 
-    params = {p.name: p for p in plan.template_parameters}
+    params = {_key(p.name): p for p in plan.template_parameters}
     linked_unc = []
     for link in plan.fit_links:
-        m = changed.get(link.measurement_name)
+        m = changed.get(_key(link.measurement_name))
         if m is None:
             continue
         linked_unc.append(m.uncertainty_mm)
-        if link.param_name in params:
-            params[link.param_name].value = m.value_mm
+        pk = _key(link.param_name)
+        if pk in params:
+            params[pk].value = m.value_mm
         else:
-            plan.template_parameters.append(ParamValue(name=link.param_name, value=m.value_mm))
-            params[link.param_name] = plan.template_parameters[-1]
+            plan.template_parameters.append(ParamValue(name=link.param_name.strip(), value=m.value_mm))
+            params[pk] = plan.template_parameters[-1]
 
     t = BY_ID.get(plan.template_id)
     tol = next((p for p in t.params if p.name == "tolerance"), None) if t else None
@@ -248,16 +274,16 @@ def _load_photo(path: Path) -> tuple[dict, int, int]:
 
 
 def _targets(plan: DesignPlan) -> list[Measurement]:
-    names = [l.measurement_name for l in plan.fit_links] or [m.name for m in plan.measurements]
-    return [m for m in plan.measurements if m.name in names and m.source != "user"]
+    names = {_key(l.measurement_name) for l in plan.fit_links} or {_key(m.name) for m in plan.measurements}
+    return [m for m in plan.measurements if _key(m.name) in names and m.source != "user"]
 
 
 def _request(plan: DesignPlan, targets: list[Measurement]) -> str:
     t = BY_ID.get(plan.template_id)
     pdesc = {p.name: p.description for p in t.params} if t else {}
-    link = {l.measurement_name: l.param_name for l in plan.fit_links}
-    dims = "\n".join(f"- {m.name}" + (f" (= {pdesc[link[m.name]]})" if link.get(m.name) in pdesc else "")
-                     for m in targets)
+    link = {_key(l.measurement_name): l.param_name.strip() for l in plan.fit_links}
+    dims = "\n".join(f"- {m.name}" + (f" (= {pdesc[link[_key(m.name)]]})" if link.get(_key(m.name)) in pdesc
+                                      else "") for m in targets)
     hint = plan.scale_reference.object if plan.scale_reference.detected else "unknown"
     return (f"Object / task: {plan.task_summary}\nReference object seen by a previous analysis: {hint}\n"
             f"Dimensions to mark:\n{dims}")
@@ -274,7 +300,14 @@ def measure_photos(plan: DesignPlan, photos: list[Path]) -> dict[str, tuple[floa
     if not targets or not photos:
         return {}
     request = _request(plan, targets)
-    loaded = [_load_photo(p) for p in photos[:MAX_PHOTOS]]
+    loaded = []
+    for p in photos[:MAX_PHOTOS]:  # one unreadable photo (e.g. HEIC) must not cancel the others
+        try:
+            loaded.append(_load_photo(p))
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+    if not loaded:
+        return {}
     jobs = [(part, w, h) for part, w, h in loaded for _ in range(RUNS)]
     from . import gemini
     gemini.client()  # create the shared client once; lazy creation in parallel threads closes clients in use
@@ -292,13 +325,13 @@ def measure_photos(plan: DesignPlan, photos: list[Path]) -> dict[str, tuple[floa
     for name in estimate:
         vals, floors, tilts, kinds = [], [], [], set()
         for values, info in runs:
-            v = values.get(name)
+            v = values.get(_key(name))
             if v is None or not math.isfinite(v) or v <= 0:
                 continue
             if estimate[name] > 0 and not (PLAUSIBLE_RATIO[0] <= v / estimate[name] <= PLAUSIBLE_RATIO[1]):
                 continue
             vals.append(v); floors.append(info["floor_mm"]); tilts.append(info["tilt"]); kinds.add(info["kind"])
-        if not vals:
+        if len(vals) < min(2, RUNS):  # a single run that saw a reference while the others did not = a guess
             continue
         val, unc = aggregate(vals, max(floors))
         tilt = min(tilts)

@@ -67,7 +67,7 @@ def main() -> int:
 
     print("result (median ± half spread of the runs):")
     for name, est in dims:
-        vals = per.get(name)
+        vals = per.get(measure._key(name))
         if not vals:
             print(f"  {name}: not measured (no reference or not visible) -> keeps estimate {est}")
             continue

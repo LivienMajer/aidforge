@@ -140,3 +140,80 @@ def test_refine_plan_falls_back_on_error(monkeypatch):
 def test_old_plans_without_new_fields_still_load():
     m = Measurement.model_validate({"name": "a", "value_mm": 1.0, "source": "typical"})
     assert m.uncertainty_mm == 0.0 and m.method == ""
+
+
+# ---- review fixes ---------------------------------------------------------------------------------
+
+def test_long_side_from_corner_order_beats_image_lengths():
+    # A5 sheet seen very obliquely: its long side (210 mm) looks SHORTER in the image than the short side.
+    sheet = np.array([[0, 0], [210.0, 0], [210.0, 148.0], [0, 148.0]])
+    p = np.array([[2.0, 0.3, 300], [0.0, 6.0, 100], [0.0, 0.012, 1]])    # strong tilt along y
+    px = measure.apply_h(p, sheet)
+    d = lambda i, j: np.linalg.norm(px[i] - px[j])
+    assert d(0, 1) < d(1, 2)                                             # the trap: long side looks short
+    obj = np.array([[20, 20], [60, 20]])                                 # 40 mm line on the sheet
+    for order in ([0, 1, 2, 3], [1, 0, 3, 2], [2, 3, 0, 1], [3, 2, 1, 0]):   # any start, both directions
+        hm = measure.rect_homography(px[order], 210.0, 148.0)
+        o = measure.apply_h(hm, measure.apply_h(p, obj))
+        assert np.linalg.norm(o[0] - o[1]) == pytest.approx(40.0, rel=0.01), order
+
+
+def test_paper_sizes_known():
+    assert measure.RECTS["a5"] == (210.0, 148.0)
+    assert measure.RECTS["a6"] == (148.0, 105.0)
+    assert "letter" in measure.RECTS
+
+
+def test_names_match_case_and_space_insensitive():
+    p = plan(fit_links=[FitLink(measurement_name="Key head  width ", param_name="key_bow_width")])
+    assert [m.name for m in measure._targets(p)] == ["key head width"]
+    out = measure.apply_results(p, {"KEY HEAD WIDTH": (22.0, 0.3, "coin")})
+    assert {x.name: x.value_mm for x in out.measurements}["key head width"] == 22.0
+    assert {x.name: x.value for x in out.template_parameters}["key_bow_width"] == 22.0
+
+
+def test_line_names_from_gemini_are_normalised():
+    c, r = np.array([500.0, 500.0]), 116.25
+    marks = MeasureMarks(
+        reference=ReferenceMarks(kind="coin_1_eur", coin_left=norm(c[0] - r, c[1]), coin_right=norm(c[0] + r, c[1]),
+                                 coin_top=norm(c[0], c[1] - r), coin_bottom=norm(c[0], c[1] + r), corners=[]),
+        lines=[LineMark(name="Key Head Width", visible=True, p1=norm(1000, 700), p2=norm(1240, 700))])
+    assert measure.measure_marks(marks, W, H)[0] == {"key head width": pytest.approx(24.0)}
+
+
+def test_unreadable_photo_does_not_cancel_the_others(monkeypatch, tmp_path):
+    from app import gemini
+    good, bad = tmp_path / "good.jpg", tmp_path / "bad.heic"
+    good.write_bytes(b"x"); bad.write_bytes(b"x")
+
+    def load(path):
+        if path == bad:
+            raise OSError("cannot identify image file")
+        return {"type": "image"}, W, H
+    c, r = np.array([500.0, 500.0]), 116.25
+    marks = MeasureMarks(
+        reference=ReferenceMarks(kind="coin_1_eur", coin_left=norm(c[0] - r, c[1]), coin_right=norm(c[0] + r, c[1]),
+                                 coin_top=norm(c[0], c[1] - r), coin_bottom=norm(c[0], c[1] + r), corners=[]),
+        lines=[LineMark(name="key head width", visible=True, p1=norm(1000, 700), p2=norm(1240, 700))])
+    monkeypatch.setattr(measure, "_load_photo", load)
+    monkeypatch.setattr(measure, "_locate", lambda part, req: marks)
+    monkeypatch.setattr(gemini, "client", lambda: None)
+    res = measure.measure_photos(plan(), [bad, good])
+    assert res["key head width"][0] == pytest.approx(24.0)
+
+
+def test_single_run_is_not_enough(monkeypatch):
+    # 1 of 3 runs guesses a reference, the others see none -> no result (it was a guess)
+    from app import gemini
+    c, r = np.array([500.0, 500.0]), 116.25
+    coin = MeasureMarks(
+        reference=ReferenceMarks(kind="coin_1_eur", coin_left=norm(c[0] - r, c[1]), coin_right=norm(c[0] + r, c[1]),
+                                 coin_top=norm(c[0], c[1] - r), coin_bottom=norm(c[0], c[1] + r), corners=[]),
+        lines=[LineMark(name="key head width", visible=True, p1=norm(1000, 700), p2=norm(1240, 700))])
+    none = coin.model_copy(update={"reference": coin.reference.model_copy(update={"kind": "none"})})
+    seq = iter([coin, none, none])
+    monkeypatch.setattr(measure, "_load_photo", lambda p: ({"type": "image"}, W, H))
+    monkeypatch.setattr(measure, "_locate", lambda part, req: next(seq))
+    monkeypatch.setattr(measure, "RUNS", 3)
+    monkeypatch.setattr(gemini, "client", lambda: None)
+    assert measure.measure_photos(plan(), ["a.jpg"]) == {}
