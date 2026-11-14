@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="de" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AidForge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/v2.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body class="mode-start">
+  <!-- Minimal Top Bar -->
+  <header class="topbar">
+    <div class="brand">
+      <button type="button" class="brand-btn" id="btn-home" title="Startseite">
+        <span class="logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path d="M10 22c0-5 2.5-9 6-9s6 4 6 9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="16" cy="9" r="2.4" fill="currentColor"/></svg>
+        </span>
+        <strong>AidForge</strong>
+      </button>
+    </div>
+
+    <div class="topbar-actions">
+      <div class="status-pills" id="status-pills" aria-label="Systemstatus">
+        <span class="status-pill" id="pill-gemini">Gemini</span>
+        <span class="status-pill" id="pill-openscad">OpenSCAD</span>
+      </div>
+      <button type="button" class="ghost-pill" id="btn-new" hidden data-i18n="newBtn">+ Neu</button>
+      <button type="button" class="icon-btn" id="btn-theme" aria-label="Theme wechseln" title="Theme wechseln">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="de" aria-pressed="true">DE</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== 1. START SCREEN (CENTERED COMPOSER) ==================== -->
+  <main class="start-screen" id="start-screen">
+    <div class="composer">
+      <div class="composer-head">
+        <h1 data-i18n="heroTitle">Welches Alltagsproblem lösen wir?</h1>
+        <p data-i18n="heroSub">Foto oder kurze Beschreibung genügt – AidForge konstruiert ein druckfertiges 3D-Hilfsmittel.</p>
+      </div>
+
+      <form id="form" class="composer-form" autocomplete="off">
+        <label class="upload-pill" id="drop">
+          <input type="file" id="files" accept="image/*,video/*" multiple>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m14-7-5-5-5 5m5-5v12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-i18n="dropText">Foto oder Video hinzufügen (optional)</span>
+        </label>
+        <div class="thumbs" id="thumbs" hidden></div>
+
+        <div class="field-group">
+          <div class="input-box">
+            <label for="impairment" data-i18n="impTitle">Was fällt schwer?</label>
+            <div class="input-wrap">
+              <input id="impairment" type="text" required data-i18n-ph="impPh" placeholder="z. B. Rheumatoide Arthritis, schwacher Pinzettengriff">
+              <button type="button" class="mic" data-target="impairment" aria-pressed="false" title="Spracheingabe">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Zm7 10a7 7 0 0 1-14 0m7 7v3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="input-box">
+            <label for="activity" data-i18n="actTitle">Was soll klappen?</label>
+            <div class="input-wrap">
+              <input id="activity" type="text" required data-i18n-ph="actPh" placeholder="z. B. Haustür selbstständig aufschließen">
+              <button type="button" class="mic" data-target="activity" aria-pressed="false" title="Spracheingabe">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Zm7 10a7 7 0 0 1-14 0m7 7v3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="presets" id="presets"></div>
+
+        <p class="error" id="form-error" role="alert" hidden></p>
+
+        <button type="submit" class="primary-cta" id="go">
+          <span data-i18n="go">Hilfsmittel bauen</span>
+        </button>
+      </form>
+
+      <div class="start-links">
+        <button type="button" class="text-link" id="btn-open-templates" data-i18n="browseTemplates">Vorlage direkt testen</button>
+        <span class="dot-sep" aria-hidden="true">·</span>
+        <button type="button" class="text-link" id="btn-open-recent" hidden data-i18n="browseRecent">Letzte Ergebnisse</button>
+      </div>
+
+      <div class="arch-strip">
+        <button type="button" class="arch-toggle" id="btn-arch-info" aria-expanded="false" aria-controls="arch-detail">
+          <span class="arch-flow" data-i18n="archFlow">Gemini Vision → OpenSCAD 2021 → Trimesh-Raycasting → Manifold STL</span>
+          <span class="arch-q" aria-hidden="true">?</span>
+        </button>
+        <div class="arch-detail" id="arch-detail" hidden>
+          <div data-i18n="archD1">1. Multimodale Analyse &amp; Fotogrammetrie-Skalierung</div>
+          <div data-i18n="archD2">2. Parametrische Template-Wahl oder OpenSCAD-Synthese</div>
+          <div data-i18n="archD3">3. CGAL-Kompilierung mit automatischem Compile-Self-Repair</div>
+          <div data-i18n="archD4">4. Deterministische Mesh-Checks &amp; Multi-View Vision-QA</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================== 2. FULLSCREEN 3D STAGE ==================== -->
+  <section class="stage" id="stage" hidden>
+    <div id="viewer" class="viewer" role="img" aria-label="3D model preview"></div>
+
+    <!-- Live Agentic Pipeline HUD (visible ONLY while generating/refining) -->
+    <div class="build-hud" id="progress-pill" hidden aria-live="polite">
+      <div class="hud-head">
+        <div class="hud-title-wrap">
+          <span class="spinner" aria-hidden="true"></span>
+          <div>
+            <div class="hud-kicker" data-i18n="hudKicker">Agentische CAD-Pipeline</div>
+            <div class="hud-title" id="progress-text"></div>
+          </div>
+        </div>
+        <span class="hud-timer mono-dim" id="hud-timer">0.0 s</span>
+      </div>
+      <p class="hud-context" id="hud-context" hidden></p>
+      <ol class="hud-stages" id="progress-steps"></ol>
+      <div class="hud-log" id="hud-log" aria-label="Pipeline-Protokoll"></div>
+    </div>
+
+    <!-- Top-Left Minimal Info Overlay -->
+    <div class="stage-info" id="stage-info" hidden>
+      <div class="info-badges">
+        <span class="pill-badge" id="approach"></span>
+        <button type="button" class="pill-badge ok check-btn" id="check-badge" hidden></button>
+      </div>
+      <p class="job-context" id="job-context" hidden></p>
+      <h2 id="device-name"></h2>
+      <p id="one-liner"></p>
+      <div class="info-meta">
+        <span class="mono-dim" id="dims"></span>
+        <button type="button" class="text-link details-trigger" id="btn-details" data-i18n="detailsLink">Details &amp; Code</button>
+      </div>
+    </div>
+
+    <!-- Top-Right Agentic Loop & Version Switcher -->
+    <div class="loop-bar" id="loop-bar" hidden>
+      <span class="loop-label" data-i18n="agentLoop">Agentischer Loop</span>
+      <div class="version-pills" id="version-pills"></div>
+    </div>
+
+    <!-- Floating Bottom Dock Stack (Always-visible Refine Bar + Dock) -->
+    <div class="dock-stack" id="dock-stack" hidden>
+      <form class="refine-bar" id="refine">
+        <input id="feedback" type="text" data-i18n-ph="refinePh" placeholder="Passt noch nicht? z. B. Griff 5 mm dicker …" aria-label="Anpassen per Text">
+        <button type="submit" class="primary-sm" data-i18n="refineGo">Ändern</button>
+      </form>
+
+      <div class="dock" id="dock">
+        <button type="button" class="dock-btn accent" id="btn-anim" hidden aria-pressed="false" aria-label="Benutzung">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+          <span data-i18n="playAnim">Benutzung</span>
+        </button>
+
+        <div class="dock-colors" id="filament-colors" role="group" aria-label="Filament">
+          <button type="button" class="swatch active" data-color="#f59e0b" style="--c:#f59e0b" title="Amber" aria-label="Amber"></button>
+          <button type="button" class="swatch" data-color="#0d9488" style="--c:#0d9488" title="Teal" aria-label="Teal"></button>
+          <button type="button" class="swatch" data-color="#f43f5e" style="--c:#f43f5e" title="Coral" aria-label="Coral"></button>
+          <button type="button" class="swatch" data-color="#64748b" style="--c:#64748b" title="Slate" aria-label="Slate"></button>
+        </div>
+
+        <span class="dock-sep" aria-hidden="true"></span>
+
+        <button type="button" class="dock-btn" id="btn-tweak" aria-expanded="false" aria-controls="sheet-tweak" aria-label="Anpassen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M2 14h4m4-6h4m4 8h4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <span data-i18n="tweakBtn">Anpassen</span>
+        </button>
+
+        <button type="button" class="dock-btn mobile-only" id="btn-refine-toggle" aria-expanded="false" aria-controls="refine" aria-label="Text-Änderung">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+          <span data-i18n="refineShort">Text</span>
+        </button>
+
+        <button type="button" class="dock-btn" id="btn-preview" aria-expanded="false" aria-controls="sheet-preview" aria-label="Foto-Vorschau">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="9" cy="9" r="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <span data-i18n="previewBtn">Foto-Vorschau</span>
+        </button>
+
+        <button type="button" class="dock-icon" id="btn-rotate" aria-pressed="false" title="Drehen" aria-label="Drehen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8m0-5v5h-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="dock-lbl" data-i18n="rotateShort">Drehen</span>
+        </button>
+
+        <a class="dock-primary" id="dl-stl" download aria-label="STL herunterladen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m4-5 5 5 5-5m-5 5V3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-i18n="dlStl">STL</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Right-Docked Tweak Panel (Desktop) / Bottom Sheet (Mobile) -->
+    <div class="popover side-panel" id="sheet-tweak" hidden role="dialog" aria-label="Anpassen">
+      <div class="pop-head">
+        <strong data-i18n="tweakTitle">Maße &amp; Form anpassen</strong>
+        <button type="button" class="close-x" data-close="sheet-tweak" aria-label="Schließen">✕</button>
+      </div>
+      <div class="pop-body">
+        <div id="params"></div>
+        <div class="pop-actions">
+          <button type="button" class="primary-sm" id="rebuild" data-i18n="rebuild">Neu bauen</button>
+          <span class="muted small-txt" id="rebuild-status"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Popover: Real-Life Preview (Storyboard / Frames) -->
+    <div class="popover wide" id="sheet-preview" hidden role="dialog" aria-label="Vorschau">
+      <div class="pop-head">
+        <strong data-i18n="previewTitle">So sieht es im Alltag aus</strong>
+        <button type="button" class="close-x" data-close="sheet-preview" aria-label="Schließen">✕</button>
+      </div>
+      <div class="pop-body">
+        <div class="vis-bar">
+          <button type="button" class="primary-sm" id="vis-story" hidden data-i18n="visStory">Fotostrecke erzeugen</button>
+          <button type="button" class="ghost-sm" id="vis-frames" data-i18n="visFrames">Vorher / Nachher</button>
+          <button type="button" class="text-link" id="vis-video" data-i18n="visVideoExp">Video (experimentell)</button>
+        </div>
+        <p class="muted small-txt" id="vis-status"></p>
+        <div class="story-grid" id="vis-story-out"></div>
+        <div class="frames-grid" id="vis-frames-out"></div>
+        <video id="vis-player" controls loop muted playsinline hidden></video>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== MODALS (Templates, Recent, Details & Code, Lightbox) ==================== -->
+  <div class="modal-backdrop" id="modal-backdrop" hidden>
+    <div class="modal" id="modal-templates" hidden role="dialog" aria-modal="true">
+      <div class="pop-head">
+        <strong data-i18n="templatesTitle">Vorlage direkt testen</strong>
+        <button type="button" class="close-x" data-close-modal aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-list" id="lib-list"></div>
+    </div>
+
+    <div class="modal" id="modal-recent" hidden role="dialog" aria-modal="true">
+      <div class="pop-head">
+        <strong data-i18n="recentTitle">Letzte Ergebnisse</strong>
+        <button type="button" class="close-x" data-close-modal aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-list" id="recent-list"></div>
+    </div>
+
+    <div class="modal wide" id="modal-details" hidden role="dialog" aria-modal="true">
+      <div class="pop-head">
+        <strong data-i18n="detailsTitle">Analyse, Druck &amp; OpenSCAD</strong>
+        <button type="button" class="close-x" data-close-modal aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-scroll" id="details-body"></div>
+      <div class="modal-foot">
+        <a class="ghost-sm" id="dl-scad" download>.scad</a>
+        <button type="button" class="ghost-sm" id="copy-code" data-i18n="copy">Code kopieren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lightbox for Storyboard -->
+  <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true">
+    <button type="button" class="lb-btn lb-close" id="lb-close" aria-label="Schließen">✕</button>
+    <button type="button" class="lb-btn lb-prev" id="lb-prev" aria-label="Zurück">‹</button>
+    <figure class="lb-fig">
+      <img id="lb-img" src="" alt="">
+      <figcaption id="lb-cap"></figcaption>
+    </figure>
+    <button type="button" class="lb-btn lb-next" id="lb-next" aria-label="Weiter">›</button>
+  </div>
+
+  <script type="module" src="/static/v2.js"></script>
+</body>
+</html>

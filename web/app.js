@@ -39,6 +39,10 @@ const I18N = {
     hideDetails: "Seitenleiste einklappen",
     moreOptions: "Mehr Optionen",
     editInput: "Bearbeiten",
+    closeDrawer: "Schließen",
+    showMore: "Mehr anzeigen",
+    visVideoExp: "Video (experimentell)",
+    scaleDetected: "erkannt",
     playAnim: "Benutzung zeigen",
     stopAnim: "Animation stoppen",
     dlStl: "STL herunterladen",
@@ -133,6 +137,10 @@ const I18N = {
     hideDetails: "Collapse sidebar",
     moreOptions: "More options",
     editInput: "Edit",
+    closeDrawer: "Close",
+    showMore: "Show more",
+    visVideoExp: "Video (experimental)",
+    scaleDetected: "detected",
     playAnim: "Show usage",
     stopAnim: "Stop animation",
     dlStl: "Download STL",
@@ -357,13 +365,7 @@ function applyTheme(mode) {
   try { localStorage.setItem("aidforge-theme", mode); } catch {}
 }
 const savedTheme = (() => { try { return localStorage.getItem("aidforge-theme"); } catch { return null; } })();
-if (savedTheme === "dark" || savedTheme === "light") {
-  applyTheme(savedTheme);
-} else if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
-  applyTheme("dark");
-} else {
-  applyTheme("light");
-}
+applyTheme(savedTheme === "dark" ? "dark" : "light");
 themeBtn?.addEventListener("click", () => {
   applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
 });
@@ -536,14 +538,17 @@ function stopAnimation() {
 
 $("btn-anim").addEventListener("click", () => { if (anim) { stopAnimation(); fitCamera(); } else startAnimation(); });
 
-// ------------------------------------------------------------------ workspace layout (composer, sidebar, fullscreen)
+// ------------------------------------------------------------------ workspace layout (composer, drawer, fullscreen)
 const workspaceEl = $("workspace");
 const composerBarEl = $("composer-bar");
 const composerToggleBtn = $("btn-composer-toggle");
-const detailsToggleBtn = $("btn-details-toggle");
-const detailsOpenBtn = $("btn-details-open");
+const drawerEl = $("drawer");
+const drawerTitleEl = $("drawer-title");
+const drawerCloseBtn = $("btn-drawer-close");
+const drawerRailEl = $("drawer-rail");
 const viewerWrapEl = $("viewer-wrap");
 const fullscreenBtn = $("btn-fullscreen");
+let activeTab = null;
 
 function setComposerCollapsed(collapsed, { persist = true } = {}) {
   workspaceEl.classList.toggle("composer-collapsed", collapsed);
@@ -551,13 +556,6 @@ function setComposerCollapsed(collapsed, { persist = true } = {}) {
   if (persist) {
     try { localStorage.setItem("aidforge-composer-collapsed", collapsed ? "1" : "0"); } catch {}
   }
-}
-
-function setDetailsCollapsed(collapsed) {
-  workspaceEl.classList.toggle("details-collapsed", collapsed);
-  detailsToggleBtn?.setAttribute("aria-expanded", String(!collapsed));
-  detailsOpenBtn?.setAttribute("aria-expanded", String(!collapsed));
-  if (detailsOpenBtn) detailsOpenBtn.hidden = !collapsed || !currentJob?.stl_url;
 }
 
 function updateComposerSummary(job) {
@@ -581,9 +579,6 @@ composerToggleBtn?.addEventListener("click", () => {
   setComposerCollapsed(!isCollapsed, { persist: true });
 });
 
-detailsToggleBtn?.addEventListener("click", () => setDetailsCollapsed(true));
-detailsOpenBtn?.addEventListener("click", () => setDetailsCollapsed(false));
-
 fullscreenBtn?.addEventListener("click", async () => {
   try {
     if (document.fullscreenElement === viewerWrapEl) {
@@ -601,12 +596,47 @@ document.addEventListener("fullscreenchange", () => {
   setTimeout(resize, 50);
 });
 
-// ------------------------------------------------------------------ tabs
-document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
-function selectTab(name) {
-  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+// ------------------------------------------------------------------ drawer tabs
+const TAB_TITLES = {
+  analysis: "tabAnalysis",
+  params: "tabParams",
+  review: "tabReview",
+  visual: "tabVisual",
+  print: "tabPrint",
+  code: "tabCode",
+};
+
+function closeDrawer() {
+  activeTab = null;
+  if (drawerEl) drawerEl.hidden = true;
+  workspaceEl.classList.remove("drawer-open");
+  document.querySelectorAll(".tabs button[data-tab]").forEach((b) => {
+    b.setAttribute("aria-expanded", "false");
+    b.classList.remove("active");
+  });
+}
+
+function selectTab(name, { toggle = false } = {}) {
+  if (toggle && activeTab === name) {
+    closeDrawer();
+    return;
+  }
+  activeTab = name;
+  if (drawerEl) drawerEl.hidden = false;
+  workspaceEl.classList.add("drawer-open");
+  if (drawerTitleEl) drawerTitleEl.textContent = t(TAB_TITLES[name] || name);
+  document.querySelectorAll(".tabs button[data-tab]").forEach((b) => {
+    const isSel = b.dataset.tab === name;
+    b.setAttribute("aria-expanded", String(isSel));
+    b.classList.toggle("active", isSel);
+  });
   document.querySelectorAll(".tab-panel").forEach((p) => { p.hidden = p.id !== `tab-${name}`; });
 }
+
+document.querySelectorAll(".tabs button[data-tab]").forEach((b) => {
+  b.addEventListener("click", () => selectTab(b.dataset.tab, { toggle: true }));
+});
+drawerCloseBtn?.addEventListener("click", closeDrawer);
 
 // ------------------------------------------------------------------ job rendering
 let currentJob = null;
@@ -629,12 +659,12 @@ function renderSteps(job) {
     </li>`).join("");
 }
 
-function srcLabel(src) {
+function srcIcon(src) {
   const s = (src || "").toLowerCase();
-  if (s.startsWith("user")) return `<span class="src user">${t("srcUser")}</span>`;
-  if (s.startsWith("ref")) return `<span class="src user">${t("srcRef")}</span>`;
-  if (s.startsWith("media")) return `<span class="src">${t("srcMedia")}</span>`;
-  return `<span class="src">${t("srcTypical")}</span>`;
+  if (s.startsWith("user")) return `<span class="src-ico user" title="${t("srcUser")}">👤</span>`;
+  if (s.startsWith("ref")) return `<span class="src-ico ref" title="${t("srcRef")}">📏</span>`;
+  if (s.startsWith("media")) return `<span class="src-ico" title="${t("srcMedia")}">≈</span>`;
+  return `<span class="src-ico" title="${t("srcTypical")}">≈</span>`;
 }
 
 function renderAnalysis(job) {
@@ -643,39 +673,50 @@ function renderAnalysis(job) {
     $("tab-analysis").innerHTML = `<p class="muted">${esc(job.template_name || "")}</p>`;
     return;
   }
-  const meas = p.measurements?.length
-    ? `<table class="kv">${p.measurements.map((m) => `<tr><th>${esc(m.name)}</th><td>${fmt(m.value_mm)}${m.uncertainty_mm > 0 ? ` ± ${fmt(m.uncertainty_mm)}` : ""} mm ${srcLabel(m.source)}</td></tr>` /* --- precise-measurement: ± --- */).join("")}</table>`
+  const b = p.brief || {};
+  const limChips = (b.limitation_chips?.length ? b.limitation_chips : (p.functional_limitations || []).slice(0, 4));
+  const reqBullets = (b.requirement_bullets?.length ? b.requirement_bullets : (p.design_requirements || []).slice(0, 5));
+
+  const chipsHtml = limChips.length
+    ? `<div class="brief-chips">${limChips.map((x) => `<span class="bchip">${esc(x)}</span>`).join("")}</div>`
+    : "";
+  const reqHtml = reqBullets.length
+    ? `<ul class="check-list">${reqBullets.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`
     : "<p class='muted'>–</p>";
+
   const sr = p.scale_reference;
   const scale = sr && sr.detected
-    ? `<div class="note">${t("scale")}: <b>${esc(sr.object)}</b> (${fmt(sr.known_size_mm)} mm) – ${esc(sr.method)}</div>`
-    : `<div class="note muted">${t("scaleNone")}${sr?.method ? " " + esc(sr.method) : ""}</div>`;
+    ? `<div class="scale-line">📏 <b>${esc(sr.object)}</b> ${t("scaleDetected")} (${fmt(sr.known_size_mm)} mm)</div>`
+    : `<div class="scale-line muted">${t("scaleNone")}</div>`;
+
+  const meas = p.measurements?.length
+    ? `<table class="kv">${p.measurements.map((m) => `<tr><th>${esc(m.name)}</th><td class="num-td">${fmt(m.value_mm)}${m.uncertainty_mm > 0 ? ` ± ${fmt(m.uncertainty_mm)}` : ""} mm ${srcIcon(m.source)}</td></tr>`).join("")}</table>`
+    : "<p class='muted'>–</p>";
+
   $("tab-analysis").innerHTML = `
-    <div class="grid2">
-      <div>
+    ${chipsHtml ? `<h4>${t("limitations")}</h4>${chipsHtml}` : ""}
+    <h4>${t("requirements")}</h4>${reqHtml}
+    <h4>${t("measurements")}</h4>${scale}${meas}
+    <details class="more-details">
+      <summary>${t("showMore")}</summary>
+      <div class="more-inner">
         <h4>${t("task")}</h4><p>${esc(p.task_summary)}</p>
         <h4>${t("observed")}</h4><p>${esc(p.observed_in_media)}</p>
         <h4>${t("root")}</h4><p>${esc(p.root_problem)}</p>
-        <h4>${t("limitations")}</h4>${list(p.functional_limitations)}
-      </div>
-      <div>
-        <h4>${t("requirements")}</h4>${list(p.design_requirements)}
-        <h4>${t("measurements")}</h4>${scale}<div style="height:8px"></div>${meas}
         <h4>${t("assumptions")}</h4>${list(p.assumptions)}
         ${p.questions_for_user?.length ? `<h4>${t("questions")}</h4>${list(p.questions_for_user)}` : ""}
       </div>
-    </div>`;
+    </details>`;
 }
 
 function renderParams(job) {
   const box = $("params");
   if (!job.params?.length) { box.innerHTML = `<p class="muted">${t("noParams")}</p>`; return; }
   box.innerHTML = job.params.map((p, i) => `
-    <div class="param">
+    <div class="param" title="${esc(p.description)} · ${fmt(p.min)}–${fmt(p.max)}">
       <label for="pn-${i}">${esc(p.name)}</label>
       <input type="range" id="pr-${i}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.value}" aria-label="${esc(p.name)}">
       <input type="number" id="pn-${i}" min="${p.min}" max="${p.max}" step="${p.step}" value="${fmt(p.value)}" data-name="${esc(p.name)}">
-      <small>${esc(p.description)} · ${fmt(p.min)}–${fmt(p.max)}</small>
     </div>`).join("");
   job.params.forEach((_, i) => {
     const r = $(`pr-${i}`), n = $(`pn-${i}`);
@@ -686,44 +727,48 @@ function renderParams(job) {
 
 function checksHtml(checks) {
   if (!checks?.checks?.length) return "";
-  const icon = { pass: "✓", warn: "!", fail: "✕" };
-  return `<ul class="checks">${checks.checks.map((c) => `
-    <li class="${c.status}">
-      <span class="ci" aria-hidden="true">${icon[c.status] || "?"}</span>
-      <span>${esc(lang === "de" ? c.label_de : c.label_en)}</span>
-      <span class="cv">${esc(c.value)}</span>
-      ${(lang === "de" ? c.detail_de : c.detail_en) ? `<small>${esc(lang === "de" ? c.detail_de : c.detail_en)}</small>` : ""}
-    </li>`).join("")}</ul>`;
+  return `<ul class="checks">${checks.checks.map((c) => {
+    const detail = lang === "de" ? c.detail_de : c.detail_en;
+    return `
+      <li class="${c.status}" title="${esc(detail || "")}">
+        <span class="cdot" aria-hidden="true"></span>
+        <span class="clabel">${esc(lang === "de" ? c.label_de : c.label_en)}</span>
+        <span class="cv">${esc(c.value)}</span>
+      </li>`;
+  }).join("")}</ul>`;
 }
 
 function renderPrint(job) {
   const p = job.plan, s = job.stats || {};
+  const b = p?.brief || {};
   const ps = p?.print_settings;
+  const printLine = b.print_line || (ps ? `${ps.material} · ${ps.layer_height_mm} mm · ${ps.infill_percent} % · ${ps.supports ? t("supports") : t("no") + " " + t("supports")}` : "");
   const statsTable = s.size_mm ? `
     <table class="kv">
-      <tr><th>${t("size")}</th><td>${s.size_mm.map(fmt).join(" × ")} mm</td></tr>
-      <tr><th>${t("volume")}</th><td>${s.volume_cm3} cm³</td></tr>
-      <tr><th>${t("weight")}</th><td>≈ ${s.weight_estimate_g} g PLA</td></tr>
+      <tr><th>${t("size")}</th><td class="num-td">${s.size_mm.map(fmt).join(" × ")} mm</td></tr>
+      <tr><th>${t("volume")}</th><td class="num-td">${s.volume_cm3} cm³</td></tr>
+      <tr><th>${t("weight")}</th><td class="num-td">≈ ${s.weight_estimate_g} g</td></tr>
       <tr><th>${t("bed")}</th><td>${s.fits_bed ? "✓" : "✕"} (${s.bed_mm.join(" × ")} mm)</td></tr>
-      <tr><th>${t("compileTime")}</th><td>${job.compile?.seconds ?? "–"} s</td></tr>
     </table>` : "";
-  const psTable = ps ? `
-    <table class="kv">
-      <tr><th>${t("material")}</th><td>${esc(ps.material)}</td></tr>
-      <tr><th>${t("layer")}</th><td>${ps.layer_height_mm} mm</td></tr>
-      <tr><th>${t("infill")}</th><td>${ps.infill_percent} %</td></tr>
-      <tr><th>${t("walls")}</th><td>${ps.walls}</td></tr>
-      <tr><th>${t("supports")}</th><td>${ps.supports ? t("yes") : t("no")}</td></tr>
-      <tr><th>${t("orientation")}</th><td>${esc(ps.orientation)}</td></tr>
-    </table>${ps.notes ? `<p class="muted" style="margin-top:8px">${esc(ps.notes)}</p>` : ""}` : "";
+  const usageList = b.usage_bullets?.length ? b.usage_bullets : (p?.usage_steps || []).slice(0, 4);
+  const safetyList = b.safety_bullets?.length ? b.safety_bullets : (p?.safety_notes || []).slice(0, 3);
+
   $("tab-print").innerHTML = `
-    <div class="grid2">
-      <div>${psTable ? `<h4>${t("printSettings")}</h4>${psTable}` : ""}<h4>${t("model")}</h4>${statsTable}</div>
-      <div>
-        ${p ? `<h4>${t("usage")}</h4>${p.usage_steps?.length ? `<ol>${p.usage_steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>` : ""}` : ""}
-        ${p ? `<h4>${t("safety")}</h4><div class="note warn">${list(p.safety_notes)}</div>` : ""}
-      </div>
-    </div>`;
+    ${printLine ? `<div class="print-hero">${esc(printLine)}</div>` : ""}
+    ${statsTable ? `<h4>${t("model")}</h4>${statsTable}` : ""}
+    ${usageList.length ? `<h4>${t("usage")}</h4><ol class="short-ol">${usageList.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>` : ""}
+    ${safetyList.length ? `<h4>${t("safety")}</h4><div class="note warn">${list(safetyList)}</div>` : ""}
+    ${ps ? `<details class="more-details"><summary>${t("showMore")}</summary><div class="more-inner">
+      <table class="kv">
+        <tr><th>${t("material")}</th><td>${esc(ps.material)}</td></tr>
+        <tr><th>${t("layer")}</th><td class="num-td">${ps.layer_height_mm} mm</td></tr>
+        <tr><th>${t("infill")}</th><td class="num-td">${ps.infill_percent} %</td></tr>
+        <tr><th>${t("walls")}</th><td class="num-td">${ps.walls}</td></tr>
+        <tr><th>${t("supports")}</th><td>${ps.supports ? t("yes") : t("no")}</td></tr>
+        <tr><th>${t("orientation")}</th><td>${esc(ps.orientation)}</td></tr>
+      </table>
+      ${ps.notes ? `<p class="muted">${esc(ps.notes)}</p>` : ""}
+    </div></details>` : ""}`;
 }
 
 function renderReview(job) {
@@ -733,13 +778,17 @@ function renderReview(job) {
     html += `<h4>${t("critique")}</h4><p class="muted">${t("reviewNone")}</p>`;
   } else {
     const ok = r.meets_requirements && r.printable;
-    html += `<h4>${t("critique")}</h4><div class="note">${esc(ok ? t("reviewOk") : t("reviewNeeds"))}<br><span class="muted">${esc(r.summary)}</span></div>
-      ${r.issues?.length ? `<h4>${t("reviewIssues")}</h4>${list(r.issues)}` : ""}`;
+    html += `<h4>${t("critique")}</h4>
+      <div class="note"><b>${esc(ok ? t("reviewOk") : t("reviewNeeds"))}</b><p class="clamp-2 muted">${esc(r.summary)}</p></div>`;
   }
-  if (job.preview_urls?.length > 1) {
-    html += `<h4>${t("reviewViews")}</h4><div class="previews">${job.preview_urls.map((u) => `<img src="${u}" alt="">`).join("")}</div>`;
+  const hasMore = (r?.issues?.length) || (job.preview_urls?.length > 1) || job.design_notes;
+  if (hasMore) {
+    html += `<details class="more-details"><summary>${t("showMore")}</summary><div class="more-inner">
+      ${r?.issues?.length ? `<h4>${t("reviewIssues")}</h4>${list(r.issues)}` : ""}
+      ${job.preview_urls?.length > 1 ? `<h4>${t("reviewViews")}</h4><div class="previews">${job.preview_urls.map((u) => `<img src="${u}" alt="">`).join("")}</div>` : ""}
+      ${job.design_notes ? `<h4>${t("designNotes")}</h4><p>${esc(job.design_notes)}</p>` : ""}
+    </div></details>`;
   }
-  if (job.design_notes) html += `<h4>${t("designNotes")}</h4><p>${esc(job.design_notes)}</p>`;
   $("tab-review").innerHTML = html;
 }
 
@@ -754,7 +803,7 @@ function checksBadge(job) {
 }
 $("check-badge").addEventListener("click", () => selectTab("review"));
 
-// ---- agentic loop timeline
+// ---- agentic loop timeline + popover
 function dotClass(counts) {
   if (!counts) return "";
   return counts.fail ? "fail" : counts.warn ? "warn" : "ok";
@@ -769,20 +818,20 @@ function renderTimeline(job) {
       return `<li><span class="iter err" title="${esc(it.note || it.error || "")}">✕ <span class="src-l">${esc(label)}</span></span></li>`;
     }
     return `<li><button type="button" class="iter" data-i="${i}" aria-pressed="${it.version === viewingVersion}">
-      ${it.preview_url ? `<img src="${it.preview_url}" alt="">` : ""}
       <b>v${it.version}</b><span class="src-l">${esc(label)}</span>
       <span class="dot ${dotClass(it.checks)}" title="${t("checksShort")}"></span>
-      ${it.verdict === "ok" ? "✓" : it.verdict === "needs_fix" ? "↻" : ""}
     </button></li>`;
   }).join("");
-  $("timeline").querySelectorAll("button.iter").forEach((b) => b.addEventListener("click", () => viewIteration(job, its[+b.dataset.i])));
+  $("timeline").querySelectorAll("button.iter").forEach((b) => b.addEventListener("click", () => viewIteration(job, its[+b.dataset.i], { openPopover: true })));
   const cur = its.find((it) => it.version === viewingVersion);
   renderIterDetail(cur);
 }
 
 function renderIterDetail(it) {
   const box = $("iter-detail");
+  const popTitle = $("iter-pop-title");
   if (!it) { box.innerHTML = ""; return; }
+  if (popTitle) popTitle.textContent = `v${it.version} · ${t("sources")[it.source] || it.source}`;
   const parts = [];
   if (it.note) parts.push(`<div class="muted">${esc(it.note)}</div>`);
   const changed = Object.entries(it.changed || {});
@@ -792,7 +841,9 @@ function renderIterDetail(it) {
   box.innerHTML = parts.join("");
 }
 
-function viewIteration(job, it) {
+$("btn-iter-close")?.addEventListener("click", () => { $("iter-popover").hidden = true; });
+
+function viewIteration(job, it, { openPopover = false } = {}) {
   if (!it || !it.stl_url) return;
   viewingVersion = it.version;
   showStl(it.stl_url, it.version);
@@ -800,6 +851,9 @@ function viewIteration(job, it) {
   $("viewing-old").textContent = tf("viewingOld", { v: it.version, c: job.version });
   renderTimeline(job);
   updateAnimButton(job);
+  if (openPopover && $("iter-detail").innerHTML.trim()) {
+    $("iter-popover").hidden = false;
+  }
 }
 
 function showStl(url, version) {
@@ -809,9 +863,40 @@ function showStl(url, version) {
   loadStl(u).catch((e) => console.error(e));
 }
 
-// ---- AI visualization
+// ---- AI visualization & lightbox
 let storyboardMod = null;  // web/storyboard.js: real-STL poses -> photorealistic storyboard
 import("/static/storyboard.js").then((m) => { storyboardMod = m; if (currentJob) renderVisual(currentJob); }).catch(() => {});
+let lbItems = [];
+let lbIndex = 0;
+
+function openLightbox(idx) {
+  if (!lbItems.length) return;
+  lbIndex = (idx + lbItems.length) % lbItems.length;
+  const item = lbItems[lbIndex];
+  $("lb-img").src = item.url;
+  $("lb-img").alt = item.caption || "";
+  $("lb-cap").textContent = `${t("visStep")} ${item.step}${item.caption ? " — " + item.caption : ""}`;
+  $("lightbox").hidden = false;
+}
+function closeLightbox() { $("lightbox").hidden = true; }
+$("lb-close")?.addEventListener("click", closeLightbox);
+$("lb-prev")?.addEventListener("click", () => openLightbox(lbIndex - 1));
+$("lb-next")?.addEventListener("click", () => openLightbox(lbIndex + 1));
+$("lightbox")?.addEventListener("click", (e) => { if (e.target === $("lightbox")) closeLightbox(); });
+
+document.addEventListener("keydown", (e) => {
+  if (!$("lightbox").hidden) {
+    if (e.key === "Escape") closeLightbox();
+    else if (e.key === "ArrowLeft") openLightbox(lbIndex - 1);
+    else if (e.key === "ArrowRight") openLightbox(lbIndex + 1);
+    return;
+  }
+  if (e.key === "Escape") {
+    if (!$("iter-popover").hidden) $("iter-popover").hidden = true;
+    else if (activeTab) closeDrawer();
+  }
+});
+
 function renderVisual(job) {
   const v = job.visual || { status: "idle" };
   const running = v.status === "running";
@@ -820,9 +905,15 @@ function renderVisual(job) {
   const canStory = !!(storyboardMod && job.approach === "template" && storyboardMod.hasStoryboard(job.template_id));
   $("vis-story").hidden = !canStory;
   $("vis-story").disabled = running || !job.stl_url;
-  const story = (v.storyboard || []).map((s) =>
-    `<figure><img src="${s.url}" alt="${esc(s.caption || "")}"><figcaption><b>${t("visStep")} ${s.step}</b></figcaption></figure>`).join("");
+  lbItems = v.storyboard || [];
+  const story = lbItems.map((s, idx) =>
+    `<button type="button" class="story-card" data-idx="${idx}"><img src="${s.url}" alt="${esc(s.caption || "")}"><span class="story-cap"><b>${t("visStep")} ${s.step}</b>${s.caption ? ` · ${esc(s.caption)}` : ""}</span></button>`).join("");
   const so = $("vis-story-out");
+  if (so.dataset.html !== story) {
+    so.innerHTML = story;
+    so.dataset.html = story;
+    so.querySelectorAll(".story-card").forEach((c) => c.addEventListener("click", () => openLightbox(+c.dataset.idx)));
+  }
   if (so.dataset.html !== story) { so.innerHTML = story; so.dataset.html = story; }
   $("vis-hint").textContent = job.has_photo ? t("visHintPhoto") : t("visHintNoPhoto");
   let status = "";
@@ -889,7 +980,9 @@ function renderJob(job, { force = false } = {}) {
   }
   $("viewer-bar").hidden = false;
   $("result").hidden = false;
-  if (detailsOpenBtn) detailsOpenBtn.hidden = !workspaceEl.classList.contains("details-collapsed");
+  if (drawerRailEl) drawerRailEl.hidden = false;
+  $("refine").hidden = false;
+  $("rebuild").disabled = job.status === "running" || job.status === "queued";
   $("dl-stl").href = job.stl_url;
   $("dl-stl").setAttribute("download", `${(job.plan?.device_name || job.template_id || "aid").replace(/[^\w-]+/g, "_")}.stl`);
   $("dl-scad").href = job.scad_url;
@@ -898,7 +991,7 @@ function renderJob(job, { force = false } = {}) {
   $("approach").textContent = job.approach === "template"
     ? `${t("approachTemplate")} · ${job.template_name || job.template_id}` : t("approachCustom");
   $("device-name").textContent = job.plan?.device_name || job.template_name || "";
-  $("how-it-helps").textContent = job.plan?.how_it_helps || "";
+  $("how-it-helps").textContent = job.plan?.brief?.one_liner || job.plan?.how_it_helps || "";
   if (job.plan) {
     $("confidence-wrap").hidden = false;
     $("confidence").style.width = `${Math.round(Math.max(0, Math.min(1, job.plan.confidence)) * 100)}%`;
@@ -955,6 +1048,7 @@ function openJob(jobId) {
   workspaceEl.classList.add("has-job");
   setComposerCollapsed(true, { persist: true });
   updateComposerSummary({ id: jobId });
+  if ($("iter-popover")) $("iter-popover").hidden = true;
   try { history.replaceState(null, "", `?job=${jobId}`); } catch {}
   poll(jobId);
 }
@@ -981,7 +1075,7 @@ $("form").addEventListener("submit", async (e) => {
   }
   try {
     const { job_id } = await api("/api/jobs", { method: "POST", body: fd });
-    selectTab("analysis");
+    closeDrawer();
     openJob(job_id);
   } catch (err) {
     setBusy(false);
@@ -1042,7 +1136,7 @@ async function loadRecent() {
       b.type = "button"; b.className = "ghost recent-item";
       const when = new Date(j.created * 1000).toLocaleString(lang === "de" ? "de-DE" : "en-GB", { dateStyle: "short", timeStyle: "short" });
       b.innerHTML = `<span>${esc(j.device_name || j.id)}${j.has_video ? " 🎬" : ""}</span><small>${esc(j.activity || "")} · v${j.version} · ${esc(when)}</small>`;
-      b.addEventListener("click", () => { selectTab("analysis"); openJob(j.id); });
+      b.addEventListener("click", () => { closeDrawer(); openJob(j.id); });
       box.appendChild(b);
     });
   } catch {}

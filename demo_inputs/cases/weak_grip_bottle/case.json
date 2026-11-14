@@ -1,0 +1,8 @@
+{
+  "title": {"de": "Schwacher Griff: Wasserflasche öffnen", "en": "Weak grip: opening a water bottle"},
+  "impairment": "Arthrose in beiden Händen, schwacher Griff. Die Finger rutschen am schmalen, geriffelten Schraubverschluss ab, die Kraft reicht nicht, um ihn aufzudrehen.",
+  "activity": "Eine Wasserflasche mit Schraubverschluss allein öffnen.",
+  "notes": "Referenz auf dem Foto: 1-Euro-Münze.",
+  "media": ["photo_1_cap_coin.jpg", "photo_2_bottle.jpg"],
+  "expected_template": "lever_turner"
+}

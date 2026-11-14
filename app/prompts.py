@@ -68,8 +68,9 @@ Constraints for every design:
   and explain the limits in safety_notes.
 - Always recommend having the fit checked with an occupational therapist for real-world use.
 
-Write all human-readable text fields in {_lang(language)}. Keep parameter names and template_id exactly
-as in the catalog.
+Write ALL human-readable text fields (device_name, how_it_helps, usage_steps, print_settings, safety_notes,
+brief, task_summary, functional_limitations, root_problem, design_requirements, observed_in_media) strictly
+in {_lang(language)}. Keep parameter names and template_id exactly as in the catalog.
 
 TEMPLATE CATALOG
 {catalog_text()}"""

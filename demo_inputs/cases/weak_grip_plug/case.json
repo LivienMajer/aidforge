@@ -1,0 +1,15 @@
+{
+  "title": {
+    "de": "Schwacher Griff: Stecker aus der Steckdose ziehen",
+    "en": "Weak grip: pulling a plug out of the socket"
+  },
+  "impairment": "Rheumatoide Arthritis, schwacher Pinzetten- und Faustgriff. Am kurzen, glatten Steckerkörper finden die Finger keinen Halt, der Stecker lässt sich nicht aus der Steckdose ziehen.",
+  "activity": "Den Schutzkontaktstecker allein und ohne am Kabel zu ziehen aus der Wandsteckdose ziehen.",
+  "notes": "Referenz: 1-Euro-Münze. Nur photo 1 (senkrecht von oben) eignet sich zum Messen; das Schrägfoto zeigt nur die Form und Dicke des Steckerkörpers. Kein passendes Standardteil - das Hilfsmittel muss um genau diesen Steckerkörper passen.",
+  "media": [
+    "photo_1_plug_coin.jpg",
+    "photo_2_socket.jpg",
+    "photo_3_plug_angle.jpg"
+  ],
+  "expected_template": "custom"
+}

@@ -27,7 +27,7 @@ pipeline.load_saved_jobs()  # results survive restarts (demo safety net)
 
 @app.get("/")
 def index():
-    return FileResponse(config.WEB_DIR / "index.html")
+    return FileResponse(config.WEB_DIR / "v2.html")
 
 
 @app.get("/api/health")
