@@ -1,116 +1,198 @@
-# AidForge – vom Alltagsproblem zum druckfertigen Hilfsmittel
+<div align="center">
 
-Eingabe: **Foto/Video** + **Einschränkung** + **Aktivität** (getippt oder per Spracheingabe) →
-Ausgabe: **druckfertiges 3D-Modell (STL + OpenSCAD)** eines Hilfsmittels, das genau diese Aktivität
-ermöglicht – plus eine **KI-Visualisierung**, wie die echte Benutzung aussehen könnte.
+# AidForge
 
-## In short (English)
+### From an everyday problem to a print-ready assistive device
 
-**AidForge turns a photo of an everyday problem into a print-ready, custom-fit assistive device.**
-A person with arthritis, tremor or one usable hand takes a photo of the object (with a coin for scale),
-describes what is hard and what should work – and gets an STL that fits *their* object, in about a minute.
+**Take a photo. Describe what is hard. Get a custom-fit, 3D-printable aid in about a minute.**
 
-- **Problem:** assistive aids exist, but off-the-shelf parts rarely fit the specific object or hand, and
-  custom ones need an occupational therapist plus a CAD engineer.
-- **How Gemini is used:** multimodal analysis with structured output (situation → requirements → design plan),
-  point location for photo measurement, OpenSCAD code generation for objects without a template,
-  visual review of renders in an agentic check-and-improve loop, image/video generation of the device in use,
-  speech input.
-- **Not just an LLM wrapper:** the model only *locates* points; scale and millimetres are computed
-  geometrically from a reference object (`app/measure.py`). Every version is compiled with OpenSCAD and
-  verified by deterministic printability checks (`app/checks.py`: watertight mesh, wall thickness by
-  raycasting, overhangs, bed contact, fit of device vs. measured object) before Gemini reviews it.
+![Gemini](https://img.shields.io/badge/Google%20Gemini-multimodal-4285F4?logo=googlegemini&logoColor=white)
+![Python](https://img.shields.io/badge/Python-FastAPI-009688?logo=fastapi&logoColor=white)
+![OpenSCAD](https://img.shields.io/badge/CAD-OpenSCAD-F9D72C?logo=openscad&logoColor=black)
+![three.js](https://img.shields.io/badge/3D%20viewer-three.js-000000?logo=threedotjs&logoColor=white)
+![Hackathon](https://img.shields.io/badge/TechEurope%20×%20Google%20DeepMind-Hackathon-EA4335)
 
-### Measured on real phone photos (1-euro coin as reference)
+</div>
 
-| Case | Path | Photo measurement | Checks | Time |
-|---|---|---|---|---|
+---
+
+> **Hackathon project.** AidForge was built at the **TechEurope × Google DeepMind Hackathon**.
+> The challenge was *open innovation*: build something new and useful on top of the latest
+> Google Gemini models. Everything in this repository was created during the event.
+
+## Table of contents
+
+- [The idea](#the-idea)
+- [How it works](#how-it-works)
+- [Why it is more than an LLM wrapper](#why-it-is-more-than-an-llm-wrapper)
+- [Results on real photos](#results-on-real-photos)
+- [Gemini models used](#gemini-models-used)
+- [Getting started](#getting-started)
+- [Project structure](#project-structure)
+- [Demo scenarios](#demo-scenarios)
+- [Known limits](#known-limits)
+
+## The idea
+
+Assistive aids exist, but off-the-shelf parts rarely fit the specific object or the specific hand.
+A custom one usually needs an occupational therapist *and* a CAD engineer.
+
+AidForge closes that gap. A person with arthritis, tremor or only one usable hand:
+
+1. takes a **photo or video** of the object, with a coin or bank card next to it for scale,
+2. describes their **limitation** and the **activity** that should work again (typed or spoken),
+3. receives a **print-ready 3D model** (STL + OpenSCAD source) sized to *their* object,
+   plus an **AI visualisation** of the device in use.
+
+<div align="center">
+<img src="demo_inputs/cases/weak_grip_bottle/photo_1_cap_coin.jpg" width="420" alt="Bottle cap next to a 1-euro coin used as size reference">
+<br>
+<sub>A real input photo: the 1-euro coin gives the scale, the cap is measured at Ø 35.0 ± 0.3 mm.</sub>
+</div>
+
+## How it works
+
+```mermaid
+flowchart TD
+    A["📷 Photo / video + text<br/>(optional speech input)"] --> B
+
+    subgraph B["1 · Analyse"]
+        B1["Gemini, multimodal, structured output<br/>task · limitations · requirements · design plan"]
+        B2["Photo measurement<br/>Gemini locates points, geometry converts to mm"]
+    end
+
+    B --> C{"2 · Design"}
+    C -->|"known aid"| D["Parametric template<br/>8 occupational-therapy devices"]
+    C -->|"no template fits"| E["Gemini writes OpenSCAD code"]
+
+    D --> F["3 · Compile<br/>OpenSCAD → STL<br/>compile errors are repaired by Gemini"]
+    E --> F
+
+    subgraph G["4 · Agentic check-and-improve loop"]
+        G1["Deterministic printability checks"]
+        G2["Renders from 3 angles → Gemini review"]
+        G3["New parameters or new code"]
+        G1 --> G2 --> G3
+    end
+
+    F --> G
+    G3 -.->|"recompile, max. 2 rounds"| F
+    G --> H["🖨️ STL + .scad download<br/>3D viewer · parameter sliders · usage animation"]
+    H --> I["✨ On demand: AI visualisation<br/>start and end image + 8 s video"]
+```
+
+Every version stays visible in the UI (`v1 → critique → v2`), so the improvement loop is transparent
+rather than a black box. Results are stored in `outputs/<job>/job.json`, survive a restart and can be
+opened directly via `http://localhost:8000/?job=<id>`.
+
+## Why it is more than an LLM wrapper
+
+| | |
+|---|---|
+| **Measured, not guessed** | The model only *locates* points in the photo. Scale and millimetres are computed geometrically from a reference object (coin, bank card, A4 sheet) in [`app/measure.py`](app/measure.py). |
+| **Verified, not assumed** | Every version is compiled with OpenSCAD and run through deterministic checks in [`app/checks.py`](app/checks.py): watertight mesh, single part, print-bed fit, wall thickness by raycasting, overhangs, bed contact, and fit of the device against the measured object. |
+| **Reviewed with evidence** | Only after the checks does Gemini review renders from three angles against the requirements *and* the check results, then proposes concrete changes. |
+| **Editable without AI** | Parameter sliders rebuild the model locally; a free-text field asks Gemini for targeted changes. |
+
+## Results on real photos
+
+Measured on real phone photos with a 1-euro coin as reference.
+
+| Case | Path | Photo measurement | Checks passed | Time |
+|---|---|---|:---:|:---:|
 | Bottle cap, weak grip | template `lever_turner` | cap Ø 35.0 ± 0.3 mm | 8 / 8 | ~1 min |
 | House key, rheumatoid arthritis | template `key_turner` | key head 27.9 × 26.0 ± 0.4 mm | 10 / 10 | ~1 min |
-| Mains plug, weak grip | **no template – Gemini writes the OpenSCAD** | shape from photo (low-contrast object, measurement uncertain) | 7 / 7 | ~2.5 min |
+| Mains plug, weak grip | **no template, Gemini writes the OpenSCAD** | shape from photo (low-contrast object, measurement uncertain) | 7 / 7 | ~2.5 min |
 
-Known limits: only dimensions lying flat in the plane of the reference object can be measured; dark objects
-with hard shadows measure poorly; the usage animation exists for template devices only.
+## Gemini models used
 
-## Pipeline
+Latencies were measured with the hackathon API key.
 
-```
-Foto/Video + Text (+ Sprache via gemini-3.5-transcribe)
-   │
-   ▼  1. Analyse  (gemini-4-hydrogen, multimodal, Structured Output → DesignPlan)
-   │     Aufgabe, Beobachtung, Einschränkungen, Anforderungen,
-   │     Maßstab über Referenzobjekt im Bild (Münze / Bankkarte / A4) → Maße in mm,
-   │     Vorlage + Parameter ODER eigenes Design, Passmaß-Verknüpfungen, Animations-Briefing
-   ▼  2. Design
-   │     Vorlage  → parametrische .scad aus app/scad_templates/ (8 Ergotherapie-Hilfsmittel)
-   │     Custom   → Gemini schreibt OpenSCAD-Code
-   ▼  3. Kompilieren (OpenSCAD → STL); Kompilierfehler → Gemini repariert (max. 3 Versuche)
-   ▼  4. Agentischer Loop (max. 2 Runden), jede Version bleibt sichtbar (v1 → Kritik → v2):
-   │     a) deterministische Druck-Checks: geschlossenes Mesh, Einzelteile, Druckbett,
-   │        Wandstärke per Raycasting, Überhänge, Auflagefläche, Passmaß Objekt ↔ Parameter
-   │     b) Render aus 3 Blickwinkeln → Gemini-Kritik gegen Anforderungen + Check-Ergebnisse
-   │     c) Fehler/Kritik → neue Parameter bzw. neuer Code → neu kompilieren
-   ▼  UI: 3D-Viewer, Loop-Timeline, Parameter-Regler („Neu bauen“ ohne KI), Freitext-Anpassung,
-         Benutzungs-Animation in three.js (ohne API), STL/.scad-Download
-   ▼  Auf Knopfdruck: KI-Visualisierung
-         Nano Banana: Startbild (Hand nutzt das Hilfsmittel in der Szene des Fotos) + Endbild (Aufgabe erledigt)
-         Omni: 8-s-Video als Übergang Start → Ende, Render als Referenz
-```
-
-Ergebnisse werden in `outputs/<job>/job.json` gespeichert und nach einem Neustart wieder geladen.
-Jedes Ergebnis ist per Link `http://localhost:8000/?job=<id>` direkt aufrufbar → **Demo-Backup**.
-
-## Setup (Windows)
-
-1. OpenSCAD installieren: `winget install --id OpenSCAD.OpenSCAD -e`
-2. Python-Umgebung:
-   ```
-   python -m venv .venv
-   .venv\Scripts\python -m pip install -r requirements.txt
-   ```
-3. `.env` anlegen (siehe `.env.example`) mit `GEMINI_API_KEY=...` und
-   `VIDEO_MODEL=gemini-omni-flash-preview`. **`.env` niemals committen, `.env.example` ohne Key lassen.**
-4. Starten:
-   ```
-   .venv\Scripts\python -m uvicorn app.main:app --port 8000
-   ```
-   → http://localhost:8000
-
-## Modelle (mit dem Hackathon-Key getestet)
-
-| Schritt | Modell | Dauer |
+| Step | Model | Latency |
 |---|---|---|
-| Analyse, Review, Anpassung | `gemini-4-hydrogen` | 15–40 s |
-| CAD-Code | `gemini-4-hydrogen` (thinking medium) | ~30 s (carbon/high: ~10 min) |
-| Start-/Endbild | `gemini-nano-banana-2.1` | ~20 s pro Bild |
-| Video | `gemini-omni-flash-preview` (`gemini-omni-1.2-flash` gibt 404) | ~50 s |
-| Spracheingabe | `gemini-3.5-transcribe` | wenige s |
+| Analysis, review, refinement | `gemini-4-hydrogen` | 15–40 s |
+| CAD code generation | `gemini-4-hydrogen` (thinking: medium) | ~30 s |
+| Start and end image | `gemini-nano-banana-2.1` | ~20 s per image |
+| Usage video | `gemini-omni-flash-preview` | ~50 s |
+| Speech input | `gemini-3.5-transcribe` | a few seconds |
 
-## Projektstruktur
+## Getting started
 
-| Datei | Inhalt |
-|---|---|
-| `app/main.py` | FastAPI-Endpunkte: Jobs, Rebuild, Refine, Visualize, Transcribe, Vorlagen |
-| `app/pipeline.py` | Analyse → Design → Kompilieren → Check/Review-Loop, Iterationen, Speicherung |
-| `app/checks.py` | Deterministische Druckbarkeits-Checks (numpy) |
-| `app/visualize.py` | Nano-Banana-Bilder + Omni-Video |
-| `app/gemini.py` | Interactions-API-Wrapper, Transkription |
-| `app/prompts.py`, `app/schemas.py` | Prompts und Structured-Output-Schemas |
-| `app/cad.py` | OpenSCAD: säubern, Parameter einsetzen, kompilieren, rendern, Maße |
-| `app/templates_registry.py`, `app/scad_templates/` | Vorlagen-Katalog + parametrische Modelle |
-| `web/` | UI (Vanilla JS + three.js per CDN), `usage_anim.js` = Benutzungs-Animation |
-| `scripts/smoke_visualize.py` | Manueller Test der Bild/Video-Generierung |
-| `app/measure.py` | Präzise Maße aus Fotos: Gemini lokalisiert Punkte, Geometrie rechnet in mm um |
-| `demo_inputs/cases/` | Demo-Fälle (`case.json` + Medien); `weak_grip_bottle` und `weak_grip_plug` sind echte Handyfotos, die übrigen KI-generierte Platzhalter |
+Instructions are for Windows; the app itself only needs Python and OpenSCAD.
 
-## Demo-Szenarien
+**1. Install OpenSCAD**
 
-| Einschränkung | Aktivität | Bild | Erwartet |
-|---|---|---|---|
-| Rheumatoide Arthritis, schwacher Pinzettengriff | Haustür aufschließen | `demo_inputs/key_with_coin.jpg` | Schlüsseldreher, Maße per Münze |
-| Tremor | Mit Löffel essen | Löffel | Schwere Griffverdickung |
-| Tetraplegie C6, kein Faustschluss | Zähne putzen | Hand + Zahnbürste | Universalmanschette |
-| Nur eine Hand (Schlaganfall) | Marmeladenglas öffnen | Glas von oben | Drehhilfe mit Hebel |
-| Nur eine Hand | Essen vom Teller schieben | Teller | Tellerranderhöhung |
-| Nur eine Hand | Hemd zuknöpfen | Hemd | Knöpfhilfe |
-| Halbseitenlähmung | Zahnpasta auftragen | – | Eigenes CAD-Design (Zahnbürstenhalter) |
+```bash
+winget install --id OpenSCAD.OpenSCAD -e
+```
+
+**2. Create the Python environment**
+
+```bash
+python -m venv .venv
+```
+
+```bash
+.venv\Scripts\python -m pip install -r requirements.txt
+```
+
+**3. Configure the API key**
+
+Copy [`.env.example`](.env.example) to `.env` and set `GEMINI_API_KEY`.
+Never commit `.env`.
+
+**4. Run**
+
+```bash
+.venv\Scripts\python -m uvicorn app.main:app --port 8000
+```
+
+Then open <http://localhost:8000>.
+
+## Project structure
+
+```
+app/
+├── main.py                FastAPI endpoints: jobs, rebuild, refine, visualise, transcribe, templates
+├── pipeline.py            Analyse → design → compile → check/review loop, iterations, persistence
+├── measure.py             Photo measurement: Gemini locates points, geometry converts to mm
+├── checks.py              Deterministic printability checks (numpy)
+├── cad.py                 OpenSCAD: sanitise, insert parameters, compile, render, dimensions
+├── visualize.py           Start/end images and usage video
+├── gemini.py              Gemini API wrapper, transcription
+├── prompts.py, schemas.py Prompts and structured-output schemas
+├── templates_registry.py  Template catalogue
+└── scad_templates/        8 parametric assistive devices
+web/                       UI in vanilla JS + three.js, incl. the usage animation
+demo_inputs/cases/         Demo cases (case.json + media)
+scripts/, tests/           CLI helpers, smoke tests, measurement tests
+```
+
+## Demo scenarios
+
+| Limitation | Activity | Expected device |
+|---|---|---|
+| Rheumatoid arthritis, weak pinch grip | Unlocking the front door | Key turner, sized via coin |
+| Tremor | Eating with a spoon | Weighted built-up handle |
+| Tetraplegia C6, no fist closure | Brushing teeth | Universal cuff |
+| One usable hand (stroke) | Opening a jam jar | Lever turner |
+| One usable hand | Pushing food onto cutlery | Plate guard |
+| One usable hand | Buttoning a shirt | Button hook |
+| Hemiplegia | Applying toothpaste | Custom CAD design (toothbrush holder) |
+
+`weak_grip_bottle` and `weak_grip_plug` in `demo_inputs/cases/` are real phone photos;
+the remaining cases use AI-generated placeholder media.
+
+## Known limits
+
+- Only dimensions lying flat in the plane of the reference object can be measured.
+- Dark objects with hard shadows measure poorly.
+- The in-browser usage animation exists for template devices only.
+- This is a hackathon prototype, not a certified medical product. Printed aids should be
+  checked by the user or a therapist before relying on them.
+
+---
+
+<div align="center">
+<sub>Built at the <b>TechEurope × Google DeepMind Hackathon</b> · powered by Google Gemini</sub>
+</div>
