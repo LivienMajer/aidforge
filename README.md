@@ -11,12 +11,14 @@
 ![OpenSCAD](https://img.shields.io/badge/CAD-OpenSCAD-F9D72C?logo=openscad&logoColor=black)
 ![three.js](https://img.shields.io/badge/3D%20viewer-three.js-000000?logo=threedotjs&logoColor=white)
 ![Hackathon](https://img.shields.io/badge/TechEurope%20×%20Google%20DeepMind-Hackathon-EA4335)
+![Finalist](https://img.shields.io/badge/🏆%20Finalist-Top%205-FBBC04)
 
 </div>
 
 ---
 
-> **Hackathon project.** AidForge was built at the **TechEurope × Google DeepMind Hackathon**.
+> **🏆 Hackathon finalist.** AidForge was built at the **TechEurope × Google DeepMind Hackathon**
+> and was selected as **one of the 5 finalist projects**.
 > The challenge was *open innovation*: build something new and useful on top of the latest
 > Google Gemini models. Everything in this repository was created during the event.
 
@@ -194,5 +196,5 @@ the remaining cases use AI-generated placeholder media.
 ---
 
 <div align="center">
-<sub>Built at the <b>TechEurope × Google DeepMind Hackathon</b> · powered by Google Gemini</sub>
+<sub>Built at the <b>TechEurope × Google DeepMind Hackathon</b> · one of 5 finalist projects · powered by Google Gemini</sub>
 </div>
