@@ -46,11 +46,20 @@ AidForge closes that gap. A person with arthritis, tremor or only one usable han
 3. receives a **print-ready 3D model** (STL + OpenSCAD source) sized to *their* object,
    plus an **AI visualisation** of the device in use.
 
-<div align="center">
-<img src="demo_inputs/cases/weak_grip_bottle/photo_1_cap_coin.jpg" width="420" alt="Bottle cap next to a 1-euro coin used as size reference">
-<br>
-<sub>A real input photo: the 1-euro coin gives the scale, the cap is measured at Ø 35.0 ± 0.3 mm.</sub>
-</div>
+<table>
+<tr>
+<th width="50%">Input: one phone photo</th>
+<th width="50%">Output: a fitted tool, shown in use</th>
+</tr>
+<tr>
+<td align="center"><img src="demo_inputs/cases/weak_grip_bottle/photo_1_cap_coin.jpg" width="400" alt="Bottle cap next to a 1-euro coin used as size reference"></td>
+<td align="center"><img src="docs/media/bottle_opener_usage.gif" width="400" alt="3D animation: the generated lever turner flips over, slides onto the bottle cap, turns it and lifts it off"></td>
+</tr>
+<tr>
+<td><sub>The 1-euro coin gives the scale; the cap is measured at Ø 35.0 ± 0.3 mm.</sub></td>
+<td><sub>The generated lever turner for exactly this cap, in the app's built-in 3D usage animation: the long lever supplies the torque a weak grip cannot.</sub></td>
+</tr>
+</table>
 
 ## How it works
 
